@@ -1,0 +1,801 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using System.IO;
+using UnityEditor;
+using System.Linq;
+using System;
+
+public class CreateMesh : MonoBehaviour
+{
+    private List<Vector3> vertices;
+    private List<int> triangles;
+    private Mesh mesh;
+    private int depthImgWidth, depthImgHeight;
+    private Color[] vertexColors;
+    private HalfedgeMesh halfedgeMesh;
+    private GameObject meshGameObj;
+    List<List<Edge>> holes_list = new List<List<Edge>>();
+    bool isDrawing = false;
+    int current_hole_idx = 0;
+    Vector3 bestv1, bestv2;
+    Vector3 currv1, currv2;
+    bool isDrawSplitLine = false;
+    LoopSplitting loopSplit;
+    Vector2[] uvs;
+    Color[] colors;
+    Texture2D texture;
+    List<int> subMeshTriangles;
+    SimplifyMesh simplify;
+    NewVertexSplit vertexSplit = new NewVertexSplit();
+
+    // Public variables
+    public TextAsset pointCloudFile;
+    public Material mat;
+    public int minHoleEdges = 2;
+    public float minNeighborDistance = 0.1f;
+    public Method holeFillingMethod;
+    public enum Method {
+        Centroid,
+        Decimation
+    }
+
+    
+    //distance threshold to cut off vertices
+    // private float threshold = 0.003f; // for ornament
+    // private float threshold = 0.05f; // for hello kitty 
+    public float threshold = float.MaxValue;
+
+    void Start()
+    {
+        halfedgeMesh = new HalfedgeMesh();
+        loopSplit = new LoopSplitting(minNeighborDistance);
+        GetPoints();
+        CreateMeshFromPoints();
+        IdentifyHoles();
+    }
+
+    void GetPoints() {
+        string[] pointsData = pointCloudFile.text.Split(new[] { "\n", "\r\n" }, System.StringSplitOptions.RemoveEmptyEntries);
+        vertices = new List<Vector3>();
+
+        string[] dims = pointsData[0].Split();
+        depthImgWidth = System.Convert.ToInt32(dims[0]);
+        depthImgHeight = System.Convert.ToInt32(dims[1]);
+
+        for (int i = 1; i < pointsData.Length - 1; i++) {
+            string[] point = pointsData[i].Split();
+            float x = float.Parse(point[0]);
+            float y = float.Parse(point[1]);
+            float z = float.Parse(point[2]);
+            vertices.Add(new Vector3(x, y, z));
+        }
+    }
+
+    void CreateMeshFromPoints() {
+        triangles = new List<int>();
+
+        Debug.Log("depth, height: " + depthImgWidth + " " + depthImgHeight);
+
+        // Image is not rotated, so width and height reversed here temporarily (192x256)
+        int rows = depthImgHeight;
+        int cols = depthImgWidth;
+
+        Vertex[] v_list = new Vertex[vertices.Count];
+        uvs = new Vector2[vertices.Count];
+        colors = new Color[vertices.Count];
+
+        for (int x = 0; x < rows; x++) {
+            for (int y = 0; y < cols; y++) {
+                int i = x * rows + y;
+
+                v_list[i] = new Vertex(vertices[i], i);
+                float u = x / (float)(rows);
+                float v = y / (float)(cols);
+                uvs[i] = new Vector2(u, v);
+                colors[i] = new Color (0.4f, 0.8f, 0.4f, 1.0f);
+
+                // only add triangle if dist < threshold
+                if (isValidTriangle(i + cols, i + cols + 1, i + 1)) {
+                    triangles.Add(i + 1);
+                    triangles.Add(i + cols + 1);
+                    triangles.Add(i + cols);
+
+                    // Create Vertex and add to list
+                    v_list[i + 1] = new Vertex(vertices[i + 1], i + 1);
+                    v_list[i + cols + 1] = new Vertex(vertices[i + cols + 1], i + cols + 1);
+                    v_list[i + cols] = new Vertex(vertices[i + cols], i + cols);
+                }
+
+                if (isValidTriangle(i + cols, i + 1, i)) {
+                    triangles.Add(i);
+                    triangles.Add(i + 1);
+                    triangles.Add(i + cols);
+                    v_list[i] = new Vertex(vertices[i], i);
+                    v_list[i + 1] = new Vertex(vertices[i + 1], i + 1);
+                    v_list[i + cols] = new Vertex(vertices[i + cols], i + cols);
+                }
+            }
+        }
+        halfedgeMesh.BuildHalfEdgeMesh(v_list, triangles.ToArray());
+        loopSplit.SetVerticesAndTriangles(vertices, triangles);
+        loopSplit.halfedgeMesh = halfedgeMesh;        
+
+        // Create mesh
+        mesh = new Mesh();
+        mesh.vertices = vertices.ToArray();
+        mesh.triangles = triangles.ToArray();
+        mesh.uv = uvs;
+        mesh.RecalculateNormals();
+
+        GameObject s = new GameObject("Object");
+        s.AddComponent<MeshFilter>();
+        s.AddComponent<MeshRenderer>();
+        s.GetComponent<MeshFilter>().mesh = mesh;
+        Renderer rend = s.GetComponent<Renderer>();
+        // rend.material.color = new Color (0.4f, 0.8f, 0.4f, 1.0f);
+
+        Material mat = new Material(Shader.Find("Standard"));
+        texture = CreateTexture(rows, cols, colors);
+		mat.SetTexture("_MainTex", texture);
+		rend.material = mat;
+
+        meshGameObj = s;
+
+        // ExportMeshToPLY("scannedMesh.ply");
+    }
+
+    bool isValidTriangle(int ai, int bi, int ci) {
+        Vector3 a = vertices[ai];
+        Vector3 b = vertices[bi];
+        Vector3 c = vertices[ci];
+
+        float ab = Vector3.Distance(a, b);
+        float bc = Vector3.Distance(b, c);
+        float ca = Vector3.Distance(c, a);
+
+        if (ab > threshold || bc > threshold || ca > threshold) {
+            return false;
+        }
+        return true;
+    }
+
+    Texture2D CreateTexture(int rows, int cols, Color[] colors) {
+        Texture2D texture = new Texture2D(rows - 1, cols - 1);
+        texture.SetPixels(colors);
+		texture.Apply();
+		return (texture);
+	}
+
+    // Using GL Lines in Game view
+    void OnPostRender()
+    {
+        if (isDrawing && current_hole_idx < holes_list.Count) {
+            GL.PushMatrix();
+            mat.SetPass(0);
+            GL.Begin(GL.LINES);
+            GL.Color(Color.red);
+
+            List<Edge> hole = holes_list[current_hole_idx];
+            if (hole != null) {
+                foreach(Edge e in hole) {
+                    Vector3 vpos = meshGameObj.transform.TransformPoint(e.vertex.position);
+                    Vector3 next_vpos = meshGameObj.transform.TransformPoint(e.next.vertex.position);
+                    GL.Vertex(vpos);
+                    GL.Vertex(next_vpos);
+                }
+            }
+            
+            GL.End();
+            GL.PopMatrix();
+        }
+    }
+
+    // Using Gizmos in Editor
+    void OnDrawGizmos()
+    {
+        Gizmos.color = Color.red;
+        if (halfedgeMesh != null && current_hole_idx < holes_list.Count)
+        {
+            // foreach (Edge he in halfedgeMesh.edgesDict.Values)
+            // {
+            //     if (he.opposite == null) {
+            //         // if (isDrawing) Gizmos.DrawLine(he.vertex.position, he.next.vertex.position);
+            //         Handles.DrawBezier(he.vertex.position, he.next.vertex.position, he.vertex.position, he.next.vertex.position, Color.cyan, null, 4);
+            //     }
+            // }
+            List<Edge> hole = holes_list[current_hole_idx];
+            // Debug.Log("hole count: " + hole);
+            if (hole != null) {
+                foreach (Edge he in hole)
+                {
+                    var thickness = 10;
+                    if (isDrawing) Handles.DrawBezier(he.vertex.position, he.next.vertex.position, he.vertex.position, he.next.vertex.position, Color.red, null, thickness);
+                    if (isDrawSplitLine) {
+                        Handles.DrawBezier(bestv1, bestv2, bestv1, bestv2, Color.blue, null, thickness);
+                        Handles.DrawBezier(currv1, currv2, currv1, currv2, Color.magenta, null, thickness);
+                    }
+                    // For 1 pixel line //Gizmos.DrawLine(he.vertex.position, he.next.vertex.position);
+                }
+            }
+            
+        }
+    }
+
+    void IdentifyHoles() {
+        List<Edge> boundary_edges = new List<Edge>();
+
+        // Step 1: Identify all boundary edges
+        foreach (Edge he in halfedgeMesh.edgesDict.Values)
+        {
+            if (he.opposite == null) {
+                he.isBoundary = true;
+                boundary_edges.Add(he);
+            }
+        }
+
+        HashSet<Edge> visitedEdges = new HashSet<Edge>();
+
+        // Step 2: Process each boundary edge and find boundary loops
+        foreach (Edge edge in boundary_edges)
+        {
+            // Skip edges that have already been processed as part of a loop
+            if (visitedEdges.Contains(edge))
+                continue;
+
+            Edge curr_edge = edge;
+            List<Edge> hole_edges = new List<Edge>();
+            float minY = float.MaxValue;
+            int minIndex = -1;
+
+            do {
+                // Add the current edge to the hole and mark it as visited
+                hole_edges.Add(curr_edge);
+                visitedEdges.Add(curr_edge);
+
+                // Track the vertex with the smallest Y (and largest X if there's a tie)
+                Vector3 currPos = curr_edge.vertex.position;
+                if (currPos.y < minY || (currPos.y == minY && currPos.x > hole_edges[minIndex].vertex.position.x)) {
+                    minY = currPos.y;
+                    minIndex = hole_edges.Count - 1;  // Update the index of the smallest Y vertex
+                }
+
+                // Move to the next edge, but make sure it's on the boundary
+                curr_edge = curr_edge.next;
+
+                // Safety check: ensure the next edge is also a boundary edge
+                while (curr_edge != null && !curr_edge.isBoundary) {
+                    curr_edge = curr_edge.opposite?.next;  // Move to the next boundary edge
+                }
+
+            } while (curr_edge != edge && curr_edge != null);  // Continue until we loop back to the starting edge
+
+            // Step 3: Only add if it's a valid hole with more than 2 edges
+            bool isClockwise = CheckOrientation(hole_edges, minIndex);
+            if (hole_edges.Count > minHoleEdges && isClockwise) {
+                holes_list.Add(hole_edges);
+            }
+
+            // Debug.Log("Hole edges count: " + hole_edges.Count);
+        }
+        Debug.Log("Holes total count: " + holes_list.Count);
+    }
+
+    bool CheckOrientation(List<Edge> hole_edges, int minIndex) {
+        int n = hole_edges.Count;
+        Vector3 A = hole_edges[minIndex].vertex.position;
+        Vector3 B = hole_edges[(minIndex - 1 + n) % n].vertex.position;  // Previous vertex
+        Vector3 C = hole_edges[(minIndex + 1) % n].vertex.position;      // Next vertex
+
+        Vector2 AB = new Vector2(B.x - A.x, B.y - A.y);
+        Vector2 AC = new Vector2(C.x - A.x, C.y - A.y);
+
+        // Compute the cross product (2D)
+        float crossProduct = AB.x * AC.y - AB.y * AC.x;
+
+        // If crossProduct < 0, it's clockwise; otherwise, it's counterclockwise
+        return crossProduct < 0;
+    }
+
+
+    void FillHolesCentroid() {
+        if (halfedgeMesh != null && current_hole_idx < holes_list.Count)
+        {
+            List<Edge> hole = holes_list[current_hole_idx];
+            Vector3[] hole_vertices = new Vector3[hole.Count];
+            for (int i = 0; i < hole.Count; i++) {
+                hole_vertices[i] = hole[i].vertex.position;
+            }
+
+            Vector3 centroid = CalculateCentroid(hole_vertices);
+            int centroidIdx = vertices.Count;
+            vertices.Add(centroid);
+
+            // Create triangles to fill the hole
+            for (int i = 0; i < hole.Count; i++) {
+                int v1 = hole[i].vertex.index;
+                int v2 = hole[(i + 1) % hole.Count].vertex.index;
+                triangles.Add(v1);
+                triangles.Add(centroidIdx);
+                triangles.Add(v2);
+            }
+
+            // Update Mesh
+            mesh.vertices = vertices.ToArray();
+            mesh.triangles = triangles.ToArray();
+            mesh.RecalculateNormals();
+            meshGameObj.GetComponent<MeshFilter>().mesh = mesh;
+        }
+    }
+
+    Vector3 CalculateCentroid(Vector3[] verts) {
+        Vector3 centroid = Vector3.zero;;
+        foreach(Vector3 v in verts) {
+            centroid += v;
+        }
+        return centroid/verts.Length;
+    }
+
+    Edge FindPreviousEdge(Edge startEdge) {
+        Edge curr_edge = startEdge;
+        Edge prev_edge = null;
+        do {
+            if (curr_edge.opposite == null) {
+                prev_edge = curr_edge;
+                curr_edge = curr_edge.next;
+            } else {
+                curr_edge = curr_edge.opposite?.next;
+            }
+        } while (curr_edge != startEdge && curr_edge != null); 
+        return prev_edge;
+    }
+
+    void RemoveTriangle(int p, int q, int r) {
+        for (int t = 0; t < triangles.Count; t += 3) {
+            int a = triangles[t];
+            int b = triangles[t + 1];
+            int c = triangles[t + 2];
+
+            // Check if the triangle matches (p, q, r) in any order
+            if ((a == p && b == q && c == r) ||
+                (a == p && b == r && c == q) ||
+                (a == q && b == p && c == r) ||
+                (a == q && b == r && c == p) ||
+                (a == r && b == p && c == q) ||
+                (a == r && b == q && c == p)) 
+            {
+                // Remove this specific triangle
+                triangles.RemoveRange(t, 3);
+            }
+        }
+
+        // Face associatedTriangle = boundaryEdge.face;
+        // if (associatedTriangle != null) {
+        //     halfedgeMesh.faces.Remove(associatedTriangle);
+        // }
+    }
+
+    // Check if a vertex has more than 2 boundary edges
+    void RemoveNonManifold() {
+        List<Vector3> vertices_copy = vertices.ToList();
+        List<Edge> hole_copy = holes_list[current_hole_idx].ToList();
+        Dictionary<Vertex, List<Edge>> vertexBoundaryEdges = new Dictionary<Vertex, List<Edge>>();
+        List<Tuple<int, int>> etoreomove = new List<Tuple<int, int>>();
+
+        // halfedgeMesh.RemoveAllNonManifold();
+
+        foreach(Edge edge in hole_copy) {
+        // foreach (var kvp in halfedgeMesh.edgesDict) {
+        //     Edge edge = kvp.Value;
+            if (edge.opposite == null) {
+                Vertex vertex = edge.vertex;
+                Vertex nextVertex = edge.next.vertex;
+                if (!vertexBoundaryEdges.ContainsKey(vertex)) {
+                    vertexBoundaryEdges[vertex] = new List<Edge>();
+                }
+                vertexBoundaryEdges[vertex].Add(edge);
+
+                if (!vertexBoundaryEdges.ContainsKey(nextVertex)) {
+                    vertexBoundaryEdges[nextVertex] = new List<Edge>();
+                }
+                vertexBoundaryEdges[nextVertex].Add(edge);
+            }
+        }
+
+        foreach (var entry in vertexBoundaryEdges) {
+            Vertex vertex = entry.Key;
+            List<Edge> boundaryEdges = entry.Value;
+            // Debug.Log("outer loop");
+            if (boundaryEdges.Count > 2) {
+                Debug.Log("this will be printex the number of non manifold vertex");
+                // debug_points.Add(vertex.position);
+
+                Edge prev_edge = null;
+                for (int m = 0; m < boundaryEdges.Count; m++) {
+                    Debug.Log("Checking boundary edge at index : " + m + " how many edges left? " + (boundaryEdges.Count - m));
+                    Edge boundaryEdge = boundaryEdges[m];
+
+                    // Need to generalize this!!!
+                    Edge nextEdge = boundaryEdge.next;
+                    Debug.Log("next opp exist? " + m + " " + nextEdge.opposite);
+                    Edge newBoundary = null;
+
+                    if (nextEdge.opposite != null) {
+                        Edge e2 = nextEdge.opposite; // another new boundary
+                        Edge prevEdge = FindPreviousEdge(boundaryEdge);
+                        Edge e1 = nextEdge.next.opposite;
+
+
+                        newBoundary = halfedgeMesh.RemoveBoundaryEdge(boundaryEdge, prevEdge, e1, e2);
+                        boundaryEdges.Insert(m + 1, newBoundary);
+
+                    } else {
+                        Edge prevEdge = FindPreviousEdge(boundaryEdge);
+                        Edge e1 = nextEdge.next.opposite;
+                        // Edge e1opp = e1.opposite.next;
+                        // Edge e2 = e1.next.next; // another new boundary
+                        Edge e2 = e1.next.opposite.next;
+
+                        newBoundary = halfedgeMesh.RemoveBoundaryEdgeAnother(boundaryEdge, prevEdge, e1, e2, nextEdge);
+                    }
+                    // Update hole
+                    Edge curr_edge = newBoundary;
+                    List<Edge> hole_edges = new List<Edge>();
+                    HashSet<Edge> visitedEdges = new HashSet<Edge>();
+                    do {
+                        if (curr_edge.opposite == null) {
+                            hole_edges.Add(curr_edge);
+                            curr_edge = curr_edge.next;
+                        } else {
+                            curr_edge = curr_edge.opposite?.next;
+                        }
+
+                    } while (curr_edge != newBoundary && curr_edge != null); 
+                    holes_list[current_hole_idx] = hole_edges;  
+
+                    int p = boundaryEdge.vertex.index;
+                    int q = nextEdge.vertex.index;
+                    int r = nextEdge.next.vertex.index;
+
+                    RemoveTriangle(p, q, r);
+
+                    Dictionary<Vertex, List<Edge>> updatedVertexBoundaryEdges = new Dictionary<Vertex, List<Edge>>();
+                    foreach(Edge edge in holes_list[current_hole_idx]) {
+                        if (edge.opposite == null) {
+                            Vertex v = edge.vertex;
+                            Vertex nv = edge.next.vertex;
+                            if (!updatedVertexBoundaryEdges.ContainsKey(v)) {
+                                updatedVertexBoundaryEdges[v] = new List<Edge>();
+                            }
+                            updatedVertexBoundaryEdges[v].Add(edge);
+
+                            if (!updatedVertexBoundaryEdges.ContainsKey(nv)) {
+                                updatedVertexBoundaryEdges[nv] = new List<Edge>();
+                            }
+                            updatedVertexBoundaryEdges[nv].Add(edge);
+                        }
+                    }
+
+                    Debug.Log("comparison: " + vertexBoundaryEdges[vertex].Count + " " + updatedVertexBoundaryEdges[vertex].Count);
+                    if (updatedVertexBoundaryEdges[vertex]. Count <= 2) {
+                        break;
+                    }
+                }
+            }
+            
+        }
+
+        UpdateMesh();
+    }
+    
+
+    void UpdateMesh() {
+        mesh.Clear();
+        mesh.vertices = vertices.ToArray();
+        mesh.triangles = triangles.ToArray();
+        mesh.RecalculateNormals();
+        meshGameObj.GetComponent<MeshFilter>().mesh = mesh;
+        // holes_list.Clear();
+    }
+
+    void SimplifyMeshUsingAspectRatio() {
+        // SimplifyMesh s = new SimplifyMesh(loopSplit.GetNewEdges());
+        // List<int> subMeshTriangles = loopSplit.GetSubmesh();
+        // simplify.triangles = subMeshTriangles;
+        simplify.EdgeFlip();
+
+        // mesh.vertices = vertices.ToArray();
+        
+
+        mesh.subMeshCount = 2;
+        // mesh.SetTriangles(triangles.ToArray(), 0);
+        mesh.SetTriangles(simplify.new_triangles.ToArray(), 1);
+        // Debug.Log("flipped triangles: " + simplify.new_triangles.Count);
+        // triangles = loopSplit.GetUpdatedTriangles();            
+        // mesh.triangles = triangles.ToArray();
+        mesh.RecalculateNormals();
+        MeshRenderer renderer = meshGameObj.GetComponent<MeshRenderer>();
+        Material newMat = new Material(Shader.Find("Standard"));
+        newMat.color = Color.yellow;
+        Material[] materials = new Material[] {
+            meshGameObj.GetComponent<Renderer>().material,
+            mat
+            // newMat
+        };            
+        renderer.materials = materials;
+        
+        meshGameObj.GetComponent<MeshFilter>().mesh = mesh;
+    }
+
+    void FillHolesDecimation() {
+        if (halfedgeMesh != null && current_hole_idx < holes_list.Count)
+        {
+            List<Edge> hole = holes_list[current_hole_idx];
+            loopSplit.totalCount = hole.Count;
+            loopSplit.TriangulateHole(hole, null, null);
+
+            subMeshTriangles = new List<int>();
+            List<Edge> newedges = loopSplit.GetNewEdges();
+            Debug.Log("new edges count: " + newedges.Count);
+            simplify = new SimplifyMesh(loopSplit.GetNewEdges());
+            
+            // int j = newedges.Count - 1;
+            // foreach(var newedge in newedges) {
+            // if (hole.Count == 6) {
+            //     for (int i = 0; i < newedges.Count; i+=3) {
+                    
+            //         var newedge0 = newedges.ElementAt(i);
+            //         var newedge1 = newedges.ElementAt(i + 1);
+            //         var newedge2 = newedges.ElementAt(i + 2);
+
+            //         Debug.Log("checking index: " + newedge0.vertex.index);
+
+            //         Edge newEdgeOpp0 = new Edge(newedge0.next.vertex);
+            //         newEdgeOpp0.opposite = newedge0;
+            //         newedge0.opposite = newEdgeOpp0;
+
+            //         Edge newEdgeOpp1 = new Edge(newedge1.next.vertex);
+            //         newEdgeOpp1.opposite = newedge1;
+            //         newedge1.opposite = newEdgeOpp1;
+
+            //         Edge newEdgeOpp2 = new Edge(newedge2.next.vertex);
+            //         newEdgeOpp2.opposite = newedge2;
+            //         newedge2.opposite = newEdgeOpp2;
+
+            //         newEdgeOpp0.next = newEdgeOpp2;
+            //         newEdgeOpp1.next = newEdgeOpp0;
+            //         newEdgeOpp2.next = newEdgeOpp1;
+
+            //         subMeshTriangles.Add(newedge0.vertex.index);
+            //         subMeshTriangles.Add(newedge0.next.vertex.index);
+            //         subMeshTriangles.Add(newedge0.next.next.vertex.index);
+
+            //         subMeshTriangles.Add(newedge1.vertex.index);
+            //         subMeshTriangles.Add(newedge1.next.vertex.index);
+            //         subMeshTriangles.Add(newedge1.next.next.vertex.index);
+
+            //         subMeshTriangles.Add(newedge2.vertex.index);
+            //         subMeshTriangles.Add(newedge2.next.vertex.index);
+            //         subMeshTriangles.Add(newedge2.next.next.vertex.index);
+
+            //         subMeshTriangles.Add(newEdgeOpp0.vertex.index);
+            //         subMeshTriangles.Add(newEdgeOpp0.next.vertex.index);
+            //         subMeshTriangles.Add(newEdgeOpp0.next.next.vertex.index);
+
+            //         // halfedgeMesh.AddEdgeAndOpposite(newedge.next.vertex.index, newedge.vertex.index, newEdgeOpp, newedge, true);
+            //     }
+            // }
+            // Debugging code
+            // bestv1 = loopSplit.bestv1;
+            // bestv2 = loopSplit.bestv2;
+            // isDrawSplitLine = true;
+            // holes_list[current_hole_idx] = loopSplit.GetUpdatedHole();
+
+            // Update Mesh
+            vertices = loopSplit.GetUpdatedVertices();
+            mesh.vertices = vertices.ToArray();
+            subMeshTriangles = loopSplit.GetSubmesh();
+            simplify.triangles = triangles; 
+            // simplify.new_triangles = subMeshTriangles;
+            // if (hole.Count != 6) subMeshTriangles = loopSplit.GetSubmesh();
+            // Debug.Log("sub mesh count: " + subMeshTriangles.Count);
+
+            mesh.subMeshCount = 2;
+            mesh.SetTriangles(triangles.ToArray(), 0);
+            mesh.SetTriangles(subMeshTriangles.ToArray(), 1);
+            // triangles = loopSplit.GetUpdatedTriangles();            
+            // mesh.triangles = triangles.ToArray();
+            mesh.RecalculateNormals();
+            MeshRenderer renderer = meshGameObj.GetComponent<MeshRenderer>();
+            Material[] materials = new Material[] {
+                meshGameObj.GetComponent<Renderer>().material,
+                mat
+            };            
+            renderer.materials = materials;
+            
+            meshGameObj.GetComponent<MeshFilter>().mesh = mesh;
+        }
+    }
+
+    void VisualizeEdges(List<Edge> edges) {
+        foreach (var e in edges) {
+            GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            sphere.transform.position = e.vertex.position;
+            sphere.transform.localScale = Vector3.one * 0.001f;
+            sphere.GetComponent<Renderer>().material.color = Color.yellow;
+
+            GameObject sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            sphere2.transform.position = e.next.vertex.position;
+            sphere2.transform.localScale = Vector3.one * 0.001f;
+            sphere2.GetComponent<Renderer>().material.color = Color.red;
+        }
+    }
+
+    void PerformVertexSplit() {
+        // vertexSplit = new NewVertexSplit(loopSplit.GetNewEdges());
+        vertexSplit.new_edges = loopSplit.all_edges.ToList(); //GetNewEdges();
+        vertexSplit.triangles = loopSplit.GetUpdatedTriangles(); //subMeshTriangles;
+
+        vertexSplit.vertices = loopSplit.GetUpdatedVertices(); //uniqueVertices.ToList();
+        vertexSplit.subMeshTriangles = subMeshTriangles;
+        vertexSplit.EdgeSplitWithNewVertex();
+
+        mesh.vertices = vertexSplit.vertices.ToArray();
+        Debug.Log("after vertex split; " + vertexSplit.vertices.Count);
+        mesh.subMeshCount = 2;
+        // mesh.SetTriangles(vertexSplit.triangles.ToArray(), 0);
+        // subMeshTriangles = subMeshTriangles.Concat(vertexSplit.new_triangles).ToList();
+        mesh.SetTriangles(vertexSplit.new_triangles.ToArray(), 1);
+
+        mesh.RecalculateNormals();
+        MeshRenderer renderer = meshGameObj.GetComponent<MeshRenderer>();
+        Material[] materials = new Material[] {
+            meshGameObj.GetComponent<Renderer>().material,
+            mat
+        };            
+        renderer.materials = materials;
+        meshGameObj.GetComponent<MeshFilter>().mesh = mesh;
+        // vertexSplit.Reset();
+    }
+
+    void Update() {
+        // Color holes one by one if the key "H" is pressed
+        if (Input.GetKeyDown(KeyCode.H)) {
+            isDrawing = true;
+            current_hole_idx = (current_hole_idx + 1) % holes_list.Count;
+            Debug.Log("Current hole vertex count: " + holes_list[current_hole_idx].Count);
+        }
+
+        if (Input.GetKeyDown(KeyCode.P)) {
+            isDrawing = true;
+            current_hole_idx = (current_hole_idx - 1 + holes_list.Count) % holes_list.Count;
+            Debug.Log("Current hole vertex count: " + holes_list[current_hole_idx].Count);
+        }
+
+        if (Input.GetKeyDown(KeyCode.N)) {
+            RemoveNonManifold();
+        }
+        if (Input.GetKeyDown(KeyCode.S)) {
+            SimplifyMeshUsingAspectRatio();
+        }
+        if (Input.GetKeyDown(KeyCode.V)) {
+            PerformVertexSplit();
+        }
+        // if (Input.GetKeyDown(KeyCode.D)) {
+        //     DeleteTrianglesInRadius();
+        // }
+        
+        
+        if (isDrawing && Input.GetKeyDown(KeyCode.F)) {
+            Debug.Log("filling holes...");
+            if (holeFillingMethod == Method.Centroid) FillHolesCentroid();
+            else FillHolesDecimation();
+        }
+    }
+
+    public void ExportMeshToPLY(string filePath)
+    {
+        using (StreamWriter writer = new StreamWriter(filePath))
+        {
+            writer.WriteLine("ply");
+            writer.WriteLine("format ascii 1.0");
+            writer.WriteLine("element vertex " + vertices.Count);
+            writer.WriteLine("property float x");
+            writer.WriteLine("property float y");
+            writer.WriteLine("property float z");
+            writer.WriteLine("property float nx");
+            writer.WriteLine("property float ny");
+            writer.WriteLine("property float nz");
+            // writer.WriteLine("property uchar red");
+            // writer.WriteLine("property uchar green");
+            // writer.WriteLine("property uchar blue");
+            writer.WriteLine("element face " + triangles.Count / 3);
+            writer.WriteLine("property list uchar int vertex_index");
+            writer.WriteLine("end_header");
+
+            Vector3[] normals = mesh.normals;
+            for (int i = 0; i < vertices.Count; i++)
+            {
+                Vector3 vertex = vertices[i];
+                Vector3 normal = normals.Length > 0 ? normals[i] : Vector3.zero;
+                writer.WriteLine($"{vertex.x} {vertex.y} {vertex.z} {normal.x} {normal.y} {normal.z}"); //{vertexColors[i].r * 255} {vertexColors[i].g * 255} {vertexColors[i].b * 255}");
+                // {normal.x} {normal.y} {normal.z} 
+            }
+
+            for (int i = 0; i < triangles.Count; i += 3)
+            {
+                writer.WriteLine("3 " + triangles[i] + " " + triangles[i + 1] + " " + triangles[i + 2]);
+            }
+        }
+
+        Debug.Log("Mesh exported to " + filePath);
+    }
+
+}
+
+public class Vertex {
+    public int index, valence;
+    public Vector3 position;
+    public Edge edge;
+    // Vector3 normal;
+    // Face[] vertex_faces;
+    List<Edge> vertex_edges;
+
+    public Vertex() {
+        this.index = 0;
+        this.position = Vector3.zero;
+        this.valence = 0;
+        vertex_edges = new List<Edge>();
+    }
+
+    public Vertex(Vector3 position, int index) {
+        this.index = index;
+        this.position = position;
+
+        // instantiate
+        valence = 0;
+        vertex_edges = new List<Edge>();
+        // edge = new Edge();
+    }
+
+    public void AddVertexEdge(Edge e) {
+        vertex_edges.Add(e);
+        valence++;
+    }
+}
+
+public class Face {
+    public Edge edge;
+    // public List<int> face_vertices;
+    public int[] face_vertices;
+    public int face_idx;
+
+    public Face(Edge edge) {
+        this.edge = edge;
+        // face_vertices = new List<int>();
+        face_vertices = new int[3];
+    }
+}
+
+public class Edge
+{
+    public Edge next, opposite;
+    public Face face;
+    public Vertex vertex;
+    public bool isBoundary = false;
+    public bool isInLoop = false;
+    // public int vertex1, vertex2;
+    // public Edge prev;
+    // public Face face;
+    
+    public Edge() {
+        this.vertex = null;
+        this.next = this.opposite = null;
+        this.isBoundary = false;
+    }
+    public Edge(Vertex v) {
+        this.vertex = v;
+        this.next = this.opposite = null;
+        this.isBoundary = false;
+    }
+}

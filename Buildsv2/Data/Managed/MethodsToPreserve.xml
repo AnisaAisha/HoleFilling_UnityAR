@@ -1,0 +1,15 @@
+<linker>
+	<assembly fullname="Assembly-CSharp" ignoreIfMissing="1">
+		<type fullname="ButtonHandler">
+			<method name="SetScanFlag"/>
+		</type>
+		<type fullname="Cdm.XR.Extensions.ARDensePointCloudManager">
+			<method name="SavePoints"/>
+		</type>
+	</assembly>
+	<assembly fullname="UnityEngine.CoreModule" ignoreIfMissing="1">
+		<type fullname="UnityEngine.Behaviour">
+			<method name="set_enabled"/>
+		</type>
+	</assembly>
+</linker>
