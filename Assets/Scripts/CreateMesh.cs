@@ -34,6 +34,7 @@ public class CreateMesh : MonoBehaviour
     public Material mat;
     public int minHoleEdges = 2;
     public float minNeighborDistance = 0.1f;
+    public float triangleCreationRadius = 0.0005f;
     public Method holeFillingMethod;
     public enum Method {
         Centroid,
@@ -132,6 +133,7 @@ public class CreateMesh : MonoBehaviour
         s.AddComponent<MeshFilter>();
         s.AddComponent<MeshRenderer>();
         s.GetComponent<MeshFilter>().mesh = mesh;
+        s.AddComponent<MeshCollider>();
         Renderer rend = s.GetComponent<Renderer>();
         // rend.material.color = new Color (0.4f, 0.8f, 0.4f, 1.0f);
 
@@ -197,15 +199,7 @@ public class CreateMesh : MonoBehaviour
         Gizmos.color = Color.red;
         if (halfedgeMesh != null && current_hole_idx < holes_list.Count)
         {
-            // foreach (Edge he in halfedgeMesh.edgesDict.Values)
-            // {
-            //     if (he.opposite == null) {
-            //         // if (isDrawing) Gizmos.DrawLine(he.vertex.position, he.next.vertex.position);
-            //         Handles.DrawBezier(he.vertex.position, he.next.vertex.position, he.vertex.position, he.next.vertex.position, Color.cyan, null, 4);
-            //     }
-            // }
             List<Edge> hole = holes_list[current_hole_idx];
-            // Debug.Log("hole count: " + hole);
             if (hole != null) {
                 foreach (Edge he in hole)
                 {
@@ -220,61 +214,119 @@ public class CreateMesh : MonoBehaviour
             }
             
         }
+
+        if (showBoundaries) {
+            foreach (Edge he in halfedgeMesh.edgesDict.Values)
+            {
+                if (he.opposite == null) {
+                    // Debug.Log(he + " " + he.next + " ");
+                    // if (isDrawing) Gizmos.DrawLine(he.vertex.position, he.next.vertex.position);
+                    if (he != null && he.next != null) Handles.DrawBezier(he.vertex.position, he.next.vertex.position, he.vertex.position, he.next.vertex.position, Color.cyan, null, 10);
+                }
+            }
+        }
     }
 
     void IdentifyHoles() {
+        // List<Edge> boundary_edges = new List<Edge>();
+
+        // // Step 1: Identify all boundary edges
+        // foreach (Edge he in halfedgeMesh.edgesDict.Values)
+        // {
+        //     if (he.opposite == null) {
+        //         he.isBoundary = true;
+        //         boundary_edges.Add(he);
+        //     }
+        // }
+        // Debug.Log("boundary edges count: " + boundary_edges.Count);
+
+        // HashSet<Edge> visitedEdges = new HashSet<Edge>();
+
+        // // Step 2: Process each boundary edge and find boundary loops
+        // foreach (Edge edge in boundary_edges)
+        // {
+        //     // Skip edges that have already been processed as part of a loop
+        //     if (visitedEdges.Contains(edge))
+        //         continue;
+
+        //     Edge curr_edge = edge;
+        //     List<Edge> hole_edges = new List<Edge>();
+        //     float minY = float.MaxValue;
+        //     int minIndex = -1;
+
+        //     do {
+        //         // Add the current edge to the hole and mark it as visited
+        //         hole_edges.Add(curr_edge);
+        //         visitedEdges.Add(curr_edge);
+
+        //         // Track the vertex with the smallest Y (and largest X if there's a tie)
+        //         Vector3 currPos = curr_edge.vertex.position;
+        //         if (currPos.y < minY || (currPos.y == minY && currPos.x > hole_edges[minIndex].vertex.position.x)) {
+        //             minY = currPos.y;
+        //             minIndex = hole_edges.Count - 1;  // Update the index of the smallest Y vertex
+        //         }
+
+        //         // Move to the next edge, but make sure it's on the boundary
+        //         curr_edge = curr_edge.next;
+
+        //         // Safety check: ensure the next edge is also a boundary edge
+        //         while (curr_edge != null && !curr_edge.isBoundary) {
+        //             curr_edge = curr_edge.opposite?.next;  // Move to the next boundary edge
+        //         }
+
+        //     } while (curr_edge != edge && curr_edge != null);  // Continue until we loop back to the starting edge
+
+        //     // Step 3: Only add if it's a valid hole with more than 2 edges
+        //     bool isClockwise = CheckOrientation(hole_edges, minIndex);
+        //     if (hole_edges.Count > minHoleEdges && isClockwise) {
+        //         holes_list.Add(hole_edges);
+        //     }
+
+        //     // Debug.Log("Hole edges count: " + hole_edges.Count);
+        // }
+        
         List<Edge> boundary_edges = new List<Edge>();
 
         // Step 1: Identify all boundary edges
-        foreach (Edge he in halfedgeMesh.edgesDict.Values)
-        {
+        foreach (Edge he in halfedgeMesh.edgesDict.Values) {
             if (he.opposite == null) {
                 he.isBoundary = true;
                 boundary_edges.Add(he);
             }
         }
+        Debug.Log("boundary edges count: " + boundary_edges.Count);
 
         HashSet<Edge> visitedEdges = new HashSet<Edge>();
 
         // Step 2: Process each boundary edge and find boundary loops
-        foreach (Edge edge in boundary_edges)
-        {
+        foreach (Edge edge in boundary_edges) {
             // Skip edges that have already been processed as part of a loop
             if (visitedEdges.Contains(edge))
                 continue;
 
             Edge curr_edge = edge;
             List<Edge> hole_edges = new List<Edge>();
-            float minY = float.MaxValue;
-            int minIndex = -1;
 
             do {
                 // Add the current edge to the hole and mark it as visited
                 hole_edges.Add(curr_edge);
                 visitedEdges.Add(curr_edge);
 
-                // Track the vertex with the smallest Y (and largest X if there's a tie)
-                Vector3 currPos = curr_edge.vertex.position;
-                if (currPos.y < minY || (currPos.y == minY && currPos.x > hole_edges[minIndex].vertex.position.x)) {
-                    minY = currPos.y;
-                    minIndex = hole_edges.Count - 1;  // Update the index of the smallest Y vertex
-                }
-
                 // Move to the next edge, but make sure it's on the boundary
                 curr_edge = curr_edge.next;
 
                 // Safety check: ensure the next edge is also a boundary edge
                 while (curr_edge != null && !curr_edge.isBoundary) {
-                    curr_edge = curr_edge.opposite?.next;  // Move to the next boundary edge
+                    curr_edge = curr_edge.opposite?.next; // Move to the next boundary edge
                 }
 
-            } while (curr_edge != edge && curr_edge != null);  // Continue until we loop back to the starting edge
+            } while (curr_edge != edge && curr_edge != null); // Continue until we loop back to the starting edge
 
             // Step 3: Only add if it's a valid hole with more than 2 edges
-            bool isClockwise = CheckOrientation(hole_edges, minIndex);
-            if (hole_edges.Count > minHoleEdges && isClockwise) {
+            if (hole_edges.Count > minHoleEdges) {
                 holes_list.Add(hole_edges);
             }
+            // holes_list.Add(hole_edges);
 
             // Debug.Log("Hole edges count: " + hole_edges.Count);
         }
@@ -319,6 +371,11 @@ public class CreateMesh : MonoBehaviour
                 triangles.Add(centroidIdx);
                 triangles.Add(v2);
             }
+
+            Vertex new_centroid_vertex = new Vertex(centroid, vertices.Count - 1);
+            // halfedgeMesh.AddVertex(new_centroid_vertex);
+            halfedgeMesh.AddNewEdge(new_centroid_vertex, hole);
+            // halfedgeMesh.UpdateMesh();
 
             // Update Mesh
             mesh.vertices = vertices.ToArray();
@@ -530,61 +587,24 @@ public class CreateMesh : MonoBehaviour
     void FillHolesDecimation() {
         if (halfedgeMesh != null && current_hole_idx < holes_list.Count)
         {
+            // Actual Code
             List<Edge> hole = holes_list[current_hole_idx];
             loopSplit.totalCount = hole.Count;
-            loopSplit.TriangulateHole(hole, null, null);
+            loopSplit.halfedgeMesh = halfedgeMesh;
 
+            loopSplit.TriangulateHole(hole, null, null);
             subMeshTriangles = new List<int>();
             List<Edge> newedges = loopSplit.GetNewEdges();
             Debug.Log("new edges count: " + newedges.Count);
             simplify = new SimplifyMesh(loopSplit.GetNewEdges());
+
+            // new code
+            // loopSplit.NewTriangulateHole(hole, null, null);
+            // subMeshTriangles = new List<int>();
+            // List<Edge> newedges = loopSplit.GetNewEdges();
+            // Debug.Log("new edges count: " + newedges.Count);
+            // simplify = new SimplifyMesh(loopSplit.GetNewEdges());
             
-            // int j = newedges.Count - 1;
-            // foreach(var newedge in newedges) {
-            // if (hole.Count == 6) {
-            //     for (int i = 0; i < newedges.Count; i+=3) {
-                    
-            //         var newedge0 = newedges.ElementAt(i);
-            //         var newedge1 = newedges.ElementAt(i + 1);
-            //         var newedge2 = newedges.ElementAt(i + 2);
-
-            //         Debug.Log("checking index: " + newedge0.vertex.index);
-
-            //         Edge newEdgeOpp0 = new Edge(newedge0.next.vertex);
-            //         newEdgeOpp0.opposite = newedge0;
-            //         newedge0.opposite = newEdgeOpp0;
-
-            //         Edge newEdgeOpp1 = new Edge(newedge1.next.vertex);
-            //         newEdgeOpp1.opposite = newedge1;
-            //         newedge1.opposite = newEdgeOpp1;
-
-            //         Edge newEdgeOpp2 = new Edge(newedge2.next.vertex);
-            //         newEdgeOpp2.opposite = newedge2;
-            //         newedge2.opposite = newEdgeOpp2;
-
-            //         newEdgeOpp0.next = newEdgeOpp2;
-            //         newEdgeOpp1.next = newEdgeOpp0;
-            //         newEdgeOpp2.next = newEdgeOpp1;
-
-            //         subMeshTriangles.Add(newedge0.vertex.index);
-            //         subMeshTriangles.Add(newedge0.next.vertex.index);
-            //         subMeshTriangles.Add(newedge0.next.next.vertex.index);
-
-            //         subMeshTriangles.Add(newedge1.vertex.index);
-            //         subMeshTriangles.Add(newedge1.next.vertex.index);
-            //         subMeshTriangles.Add(newedge1.next.next.vertex.index);
-
-            //         subMeshTriangles.Add(newedge2.vertex.index);
-            //         subMeshTriangles.Add(newedge2.next.vertex.index);
-            //         subMeshTriangles.Add(newedge2.next.next.vertex.index);
-
-            //         subMeshTriangles.Add(newEdgeOpp0.vertex.index);
-            //         subMeshTriangles.Add(newEdgeOpp0.next.vertex.index);
-            //         subMeshTriangles.Add(newEdgeOpp0.next.next.vertex.index);
-
-            //         // halfedgeMesh.AddEdgeAndOpposite(newedge.next.vertex.index, newedge.vertex.index, newEdgeOpp, newedge, true);
-            //     }
-            // }
             // Debugging code
             // bestv1 = loopSplit.bestv1;
             // bestv2 = loopSplit.bestv2;
@@ -658,12 +678,213 @@ public class CreateMesh : MonoBehaviour
         // vertexSplit.Reset();
     }
 
+    bool showBoundaries = false;
+    int counter = 0;
+    void CreateHole() {
+        Ray inputRay = Camera.main.ScreenPointToRay(Input.mousePosition);
+        RaycastHit hit;
+        // float radius = 0.0005f;
+        // Debug.DrawRay(inputRay.origin, inputRay.direction * 1000, Color.red, 20f);
+
+		if (Physics.Raycast(inputRay, out hit, Mathf.Infinity)) {
+            MeshFilter meshFilter = hit.collider.GetComponent<MeshFilter>();
+
+            if (meshFilter != null) {
+                // Debug.Log("did we find a mesh filter");
+                int hitIdx = hit.triangleIndex;
+                isClicked = false;
+                List<int> currTriangles = mesh.triangles.ToList();
+                List<int> newTriangles = new List<int>();
+                Debug.Log("hit point world space: " + hit.point);
+                List<Vector3> newVertices = new List<Vector3>();
+
+                for (int i = 0; i < currTriangles.Count; i += 3)
+                {
+                    // Get the three vertices of the triangle
+                    Vector3 v1 = vertices[currTriangles[i]];
+                    Vector3 v2 = vertices[currTriangles[i + 1]];
+                    Vector3 v3 = vertices[currTriangles[i + 2]];
+
+                    // Check if the triangle is inside or intersects the sphere
+                    if (!IsTriangleInSphere(v1, v2, v3, hit.point, triangleCreationRadius))
+                    {
+                        // Keep the triangle if it doesn't intersect the sphere
+                        newTriangles.Add(currTriangles[i]);
+                        newTriangles.Add(currTriangles[i + 1]);
+                        newTriangles.Add(currTriangles[i + 2]);
+
+                        // newVertices.Add(v1);
+                        // newVertices.Add(v2);
+                        // newVertices.Add(v3);
+                    } else {
+                        Debug.Log("removing triangle...");
+                        halfedgeMesh.RemoveTriangle(currTriangles[i], currTriangles[i + 1], currTriangles[i + 2], counter);
+                        // counter++;
+                    }
+                    
+                }
+                halfedgeMesh.RemoveAllEdges();
+
+                // Update the mesh with the filtered triangles
+                // mesh.vertices = newVertices.ToArray();
+                mesh.triangles = newTriangles.ToArray();
+                triangles = newTriangles;
+                
+                // Recalculate bounds and normals
+                mesh.RecalculateBounds();
+                mesh.RecalculateNormals();
+                halfedgeMesh.edgesToRemove.Clear();
+                counter = 0;
+            }
+		}
+    }
+    private bool IsTriangleInSphere(Vector3 v1, Vector3 v2, Vector3 v3, Vector3 sphereCenter, float sphereRadius)
+    {
+        // Check if any vertex is inside the sphere
+        if (Vector3.Distance(v1, sphereCenter) <= sphereRadius ||
+            Vector3.Distance(v2, sphereCenter) <= sphereRadius ||
+            Vector3.Distance(v3, sphereCenter) <= sphereRadius)
+        {
+            return true;
+        }
+
+        // Check if the sphere intersects the triangle (use bounding sphere for simplification)
+        Vector3 triangleCentroid = (v1 + v2 + v3) / 3f;
+        float distanceToCentroid = Vector3.Distance(triangleCentroid, sphereCenter);
+
+        if (distanceToCentroid <= sphereRadius)
+        {
+            return true;
+        }
+
+        // Further intersection checks can be added if needed (e.g., triangle edges with sphere)
+        return false;
+    }
+    private Matrix4x4 rotationMatrix = new Matrix4x4();
+    void RotateHole(Vector3 axis, float angle) {
+        List<Edge> hole_edges = holes_list[current_hole_idx];
+        // Plane plane = loopSplit.CreateNewAvgPlane(hole_edges);
+
+        // (Edge v1, Edge v2) = loopSplit.FindBestSplitLine(hole_edges);
+        // Plane perpPlane = loopSplit.bestSplitPlane;
+
+        // Vector3 binormal = Vector3.Cross(plane.normal, perpPlane.normal).normalized;
+
+        // // Matrix4x4 rotationMatrix = new Matrix4x4();
+        // rotationMatrix.SetRow(0, new Vector4(perpPlane.normal.x, perpPlane.normal.y, perpPlane.normal.z, 0)); // X-axis
+        // rotationMatrix.SetRow(1, new Vector4(binormal.x, binormal.y, binormal.z, 0)); // Y-axis
+        // rotationMatrix.SetRow(2, new Vector4(plane.normal.x, plane.normal.y, plane.normal.z, 0)); // Z-axis
+        // rotationMatrix.SetRow(3, new Vector4(0, 0, 0, 1)); // Homogeneous row
+
+        // Vector3 center = Vector3.zero;
+        // foreach (var e in hole_edges)
+        // {
+        //     center += e.vertex.position;
+        // }
+        // center /= hole_edges.Count;
+
+        // Vector3 relativePosition = Camera.main.transform.position - center;
+
+        // // Step 3: Apply the Rotation
+        // Vector3 rotatedPosition = rotationMatrix.MultiplyPoint3x4(relativePosition);
+
+        // // Step 4: Translate Back
+        // Camera.main.transform.position = rotatedPosition + center;
+
+        // // Optional: Rotate the Object Itself
+        // Camera.main.transform.rotation *= rotationMatrix.rotation; 
+        //Quaternion.LookRotation(rotationMatrix.GetColumn(2), rotationMatrix.GetColumn(1));
+
+        // meshGameObj.transform.position = rotatedPosition + center;
+        // meshGameObj.transform.rotation *= rotationMatrix.rotation; 
+
+        List<Vector3> hole_vertices = hole_edges.Select(edge => edge.vertex.position).ToList();
+        Vector3 center = Vector3.zero;
+        foreach (var vertex in hole_vertices) {
+            center += vertex;
+        }
+        center /= hole_vertices.Count;
+
+        Camera.main.transform.RotateAround(center, axis, angle);
+    }
+
+    void CameraFocus () {
+        List<Edge> hole_edges = holes_list[current_hole_idx];
+        Plane plane = loopSplit.CreateNewAvgPlane(hole_edges);
+        Vector3 normal = plane.normal;
+
+        // Step 3: Compute the center of the hole
+        List<Vector3> hole_vertices = hole_edges.Select(edge => edge.vertex.position).ToList();
+        Vector3 center = Vector3.zero;
+        foreach (var vertex in hole_vertices) {
+            center += vertex;
+        }
+        center /= hole_vertices.Count;
+
+        // Step 4: Position and orient the camera
+        float aspect = (float)Screen.width / (float)Screen.height;
+
+        // Define the distance of the camera based on the hole size
+        // float maxDistance = hole_vertices.Max(v => Vector3.Distance(center, v)) / Mathf.Tan(Mathf.Deg2Rad * (Camera.main.fieldOfView / aspect));
+
+        // // Position the camera along the negative normal direction
+        // Camera.main.transform.position = center - normal * (maxDistance + 0.075f);
+
+        // // Orient the camera to look at the center of the hole
+        // Camera.main.transform.LookAt(center);
+
+        // // Optionally adjust the camera's up vector to ensure proper orientation
+        // Camera.main.transform.up = Vector3.up;
+
+        Camera.main.transform.position = center + (-normal) * 0.05f; //- new Vector3(0f, 0f, 0.05f);
+        // Vector3 cameraToCenter = center - Camera.main.transform.position;
+
+        // Ensure the camera is always positioned correctly relative to the hole
+        // Camera.main.transform.position = center - cameraToCenter.normalized * 0.05f;
+        Camera.main.transform.LookAt(center);
+    }
+
+    bool isClicked = false;
+    float translate_factor = 0.001f;
+    float rotate_factor = 0.08f; //5.0f;
+    float rotationSpeed = 0.08f;
     void Update() {
+        // float dx = Input.GetAxis ("Horizontal");
+		// float dz = Input.GetAxis ("Vertical");
+
+        // Vector3 cam_pos = Camera.main.transform.position;
+        // // move the camera based on keyboard input
+        // if (Camera.main != null) {
+        //     // Get the current y-rotation of the camera
+        //     float currentYRotation = Camera.main.transform.eulerAngles.y;                
+        //     Camera.main.transform.Rotate(0, dx * rotate_factor, 0);
+        //     Camera.main.transform.Translate(0, 0, dz * translate_factor);
+        // }
+
+
+        if (Input.GetMouseButtonDown(0) && !isClicked) {
+            Debug.Log("mouse down");
+            isClicked = true;
+            CreateHole();
+            holes_list.Clear();
+            IdentifyHoles();
+        }
+
         // Color holes one by one if the key "H" is pressed
         if (Input.GetKeyDown(KeyCode.H)) {
             isDrawing = true;
             current_hole_idx = (current_hole_idx + 1) % holes_list.Count;
             Debug.Log("Current hole vertex count: " + holes_list[current_hole_idx].Count);
+        }
+
+        if (isDrawing && Input.GetKeyDown(KeyCode.Q)) {
+            CameraFocus();
+        }
+        if (isDrawing && Input.GetKeyDown(KeyCode.R)) {
+            RotateHole(Vector3.up, 150 * Time.deltaTime);
+        }
+        if (isDrawing && Input.GetKeyDown(KeyCode.W)) {
+            RotateHole(Vector3.up, -150 * Time.deltaTime);
         }
 
         if (Input.GetKeyDown(KeyCode.P)) {
@@ -681,9 +902,6 @@ public class CreateMesh : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.V)) {
             PerformVertexSplit();
         }
-        // if (Input.GetKeyDown(KeyCode.D)) {
-        //     DeleteTrianglesInRadius();
-        // }
         
         
         if (isDrawing && Input.GetKeyDown(KeyCode.F)) {
