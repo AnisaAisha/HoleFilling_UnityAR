@@ -37,6 +37,7 @@ public class CreateMesh : MonoBehaviour
     public float minNeighborDistance = 0.1f;
     public float triangleCreationRadius = 0.0005f;
     public int vertexSplitIterations = 2;
+    public int edgeFlipIters = 2;
     public Method holeFillingMethod;
     public enum Method {
         Centroid,
@@ -567,7 +568,7 @@ public class CreateMesh : MonoBehaviour
         // SimplifyMesh s = new SimplifyMesh(loopSplit.GetNewEdges());
         // List<int> subMeshTriangles = loopSplit.GetSubmesh();
         // simplify.triangles = subMeshTriangles;
-        simplify = new SimplifyMesh(loopSplit.GetNewEdges());
+        simplify = new SimplifyMesh(loopSplit.GetNewEdges(), edgeFlipIters);
         simplify.newEdgeDict = loopSplit.newEdgeDict;
         simplify.triangles = subMeshTriangles; //triangles.ToList();
         simplify.halfedgeMesh = halfedgeMesh;
