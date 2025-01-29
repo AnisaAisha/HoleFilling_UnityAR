@@ -20,7 +20,7 @@ public class LoopSplitting //: MonoBehaviour
     Dictionary<Edge, Tuple<Edge, Edge>> new_edge_indices = new Dictionary<Edge, Tuple<Edge, Edge>>();
     Dictionary<Edge, Edge> previous_edges = new Dictionary<Edge, Edge>();
     // List<Edge> new_edges = new List<Edge>();
-    Dictionary<Edge, List<Edge>> newEdgeDict = new Dictionary<Edge, List<Edge>>();
+    public Dictionary<Tuple<int, int>, Edge> newEdgeDict = new Dictionary<Tuple<int, int>, Edge>();
     public Plane bestSplitPlane;
 
     public HashSet<Edge> all_edges = new HashSet<Edge>();
@@ -51,7 +51,8 @@ public class LoopSplitting //: MonoBehaviour
     }
 
     public List<Edge> GetNewEdges() {
-        return new_edges.ToList();
+        // return new_edges.ToList();
+        return new_edge_list;
     }
 
     private bool IsCorrectWindingOrder(Vector3 p0, Vector3 p1, Vector3 p2)
@@ -157,54 +158,42 @@ public class LoopSplitting //: MonoBehaviour
         } while (currEdge != startEdge && currEdge != null); 
         return prevEdge;
     }
-
+    int counter = 0;
     public void NewTriangulateHole(List<Edge> hole_vertices, Edge v11, Edge v22) {
         if (hole_vertices.Count <= 3)
         {
             Debug.Log("new triangulate we hit base case " + hole_vertices.Count);
 
-            // Vector3 p0 = hole_vertices[0].vertex.position;
-            // Vector3 p1 = hole_vertices[1].vertex.position;
-            // Vector3 p2 = hole_vertices[2].vertex.position;
-            // if (!IsCorrectWindingOrder(p0, p1, p2))
-            // {
-            //     (p1, p2) = (p2, p1);
+            // for (int i = 0; i < 3; i++) {
+            //     vertices.Add(hole_vertices[i].vertex.position);
             // }
 
-            // vertices.Add(p0);
-            // vertices.Add(p1);
-            // vertices.Add(p2);
+            // // Ensure the correct winding order
+            // if (!IsCorrectWindingOrder(vertices[vertices.Count - 3], vertices[vertices.Count - 2], vertices[vertices.Count - 1])) {
+            //     (vertices[vertices.Count - 2], vertices[vertices.Count - 1]) = (vertices[vertices.Count - 1], vertices[vertices.Count - 2]);
+            // }
 
-            // subMeshTriangles.Add(vertices.Count - 3);
-            // subMeshTriangles.Add(vertices.Count - 2);
-            // subMeshTriangles.Add(vertices.Count - 1);
-
-            // VisualizeHolePoints(hole_vertices);
+            // // Add indices for the triangle
+            // for (int i = 3; i > 0; i--) {
+            //     subMeshTriangles.Add(vertices.Count - i);
+            // }
+            List<int> triangleIndices = new List<int>();
 
             for (int i = 0; i < 3; i++) {
-                vertices.Add(hole_vertices[i].vertex.position);
+                int vertexIndex = hole_vertices[i].vertex.index; // Retrieve the existing vertex index
+                triangleIndices.Add(vertexIndex);
             }
 
             // Ensure the correct winding order
-            if (!IsCorrectWindingOrder(vertices[vertices.Count - 3], vertices[vertices.Count - 2], vertices[vertices.Count - 1])) {
-                (vertices[vertices.Count - 2], vertices[vertices.Count - 1]) = (vertices[vertices.Count - 1], vertices[vertices.Count - 2]);
+            if (!IsCorrectWindingOrder(vertices[triangleIndices[0]], vertices[triangleIndices[1]], vertices[triangleIndices[2]])) {
+                (triangleIndices[1], triangleIndices[2]) = (triangleIndices[2], triangleIndices[1]);
             }
 
             // Add indices for the triangle
-            for (int i = 3; i > 0; i--) {
-                subMeshTriangles.Add(vertices.Count - i);
-}
-
-            foreach(var e in hole_vertices) {
-                if (!all_edges.Contains(e)) {
-                    all_edges.Add(e);
-                }
-            }
+            subMeshTriangles.AddRange(triangleIndices);
 
             // add triangle to half edge DS at this point
-            // halfedgeMesh.AddTriangle(vertices.Count - 3, vertices.Count - 2, vertices.Count - 1, new_edge_list[new_edge_list.Count - 1]);
-            halfedgeMesh.AddTriangle(hole_vertices[0], hole_vertices[1], hole_vertices[2], new_edge_list[new_edge_list.Count - 1]);
-
+            halfedgeMesh.AddTriangle(hole_vertices[0], hole_vertices[1], hole_vertices[2], newEdgeDict); //, new_edge_list[new_edge_list.Count - 1]);
             return;
         }
 
@@ -212,82 +201,79 @@ public class LoopSplitting //: MonoBehaviour
         List<Edge> loopA, loopB;
         SplitLoopTopology(v1, v2, out loopA, out loopB); 
         Debug.Log("Split loops: " + hole_vertices.Count + " " + loopA.Count + " " + loopB.Count);
-
-        Edge v2Prev = FindPreviousEdge(v2);
-        Edge v1Prev = FindPreviousEdge(v1);
         
-        // Processing loop A
-        Edge new_edge = new Edge(v2.vertex);
-
-        new_edge.next = v1;
+        Edge new_edge = new Edge(v1.vertex);
         new_edge.opposite = null;
-        v2Prev.next = new_edge;
+        // new_edge_list.Add(new_edge);
 
-        new_edge_list.Add(new_edge);
-
+        // Processing loop A -> almost always 3
         List<Edge> loopACopy = new List<Edge>();
-        foreach(var e in loopA) {
-            if (e != v2) {
-                loopACopy.Add(e);
+        Edge previousEdge = null;
+        foreach (var e in loopA)
+        {
+            Edge currentEdge;
+            if (e == v2) {
+                currentEdge = new_edge;
             } else {
-                loopACopy.Add(new_edge);
+                currentEdge = new Edge(e.next.vertex);
+                currentEdge.opposite = e;
+                e.opposite = currentEdge;
             }
-        }
 
+            if (e == v1) currentEdge.next = new_edge;
+            else currentEdge.next = previousEdge;
+
+            loopACopy.Add(currentEdge);
+            new_edge_list.Add(currentEdge);
+            newEdgeDict.Add(Tuple.Create(currentEdge.vertex.index, currentEdge.next.vertex.index), currentEdge);
+
+            previousEdge = currentEdge;
+        }
+        // VisualizeHolePoints(loopACopy);
         NewTriangulateHole(loopACopy, v1, v2);
 
         // Processing loop B
-        Edge new_edgeB = new Edge(v1.vertex);
-
-        new_edgeB.next = v2;
-        new_edgeB.opposite = null;
-        v1Prev.next = new_edgeB;
-
         List<Edge> loopBCopy = new List<Edge>();
-        foreach(var e in loopB) {
-            if (e != v1) {
-                loopBCopy.Add(e);
-            } else {
-                loopBCopy.Add(new_edgeB);
+        if (loopB.Count == 3) {
+            Edge new_edge_opp = new Edge(new_edge.next.vertex);
+
+            // Send opposite edges after processing them here.
+            foreach (var e in loopB) {
+                Edge currentEdge = null;
+                if (e == v1) {
+                    currentEdge = new_edge_opp;
+                    currentEdge.opposite = e;
+                    e.opposite = currentEdge;
+                }
+                else {
+                    currentEdge = new Edge(e.next.vertex);
+                    currentEdge.opposite = e;
+                    e.opposite = currentEdge;
+                }
+                
+                if (e == v2) currentEdge.next = new_edge_opp;
+                else currentEdge.next = previousEdge;
+
+                loopBCopy.Add(currentEdge);
+                new_edge_list.Add(currentEdge);
+                newEdgeDict.Add(Tuple.Create(currentEdge.vertex.index, currentEdge.next.vertex.index), currentEdge);
+
+                previousEdge = currentEdge;
+            }
+            new_edge.opposite = new_edge_opp;
+            new_edge_opp.opposite = new_edge;
+            Debug.Log("opp check..." + new_edge.opposite + " nn " + new_edge_opp.opposite);
+        } else {
+            foreach(var e in loopB) {
+                if (e != v1) {
+                    loopBCopy.Add(e);
+                } else {
+                    loopBCopy.Add(new_edge);
+                }
             }
         }
+        // VisualizeHolePoints(loopBCopy);
         NewTriangulateHole(loopBCopy, v1, v2);
-        
-        // Assign opposites
-        // if (v2.opposite == null) {
-            // Edge v2opp = new Edge(v2.next.vertex);
-            // v2opp.next = new_edge;
-            // v2.opposite = v2opp;
-        
-            // Edge v1PrevEdgeOpp = new Edge(v1Prev.next.vertex);
-            // v1PrevEdgeOpp.next = v2opp;
-            // v1Prev.opposite = v1PrevEdgeOpp;
-        // }
-
-        // loopB = loopBCopy;
-
-        // GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        // sphere.transform.position = loopBCopy[0].vertex.position;
-        // sphere.transform.localScale = Vector3.one * 0.001f;
-        // sphere.GetComponent<Renderer>().material.color = Color.cyan;
-        // GameObject sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        // sphere2.transform.position = loopBCopy[1].vertex.position;
-        // sphere2.transform.localScale = Vector3.one * 0.001f;
-        // sphere2.GetComponent<Renderer>().material.color = Color.magenta;
-        // GameObject sphere3 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        // sphere3.transform.position = loopBCopy[2].vertex.position;
-        // sphere3.transform.localScale = Vector3.one * 0.001f;
-        // sphere3.GetComponent<Renderer>().material.color = Color.green;
-
-        // new_edges.Add(new_edge);
-        // new_edge_indices.Add(new_edge, Tuple.Create(v2, v1));
-        // new_edge_list.Add(new_edge);
-
-        // if (!previous_edges.ContainsKey(v1)) previous_edges.Add(v1, v1Prev);
-        // if (!previous_edges.ContainsKey(v2)) previous_edges.Add(v2, v2Prev);
-
-        // NewTriangulateHole(loopA, v1, v2);
-        // NewTriangulateHole(loopB, v1, v2);
     }
 
 

@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -6,16 +7,18 @@ using System.Linq;
 public class NewVertexSplit : MonoBehaviour
 {
     public List<Vector3> vertices;
-    HalfedgeMesh halfedgeMesh;
+    public HalfedgeMesh halfedgeMesh;
     public List<int> triangles;
     public List<int> new_triangles = new List<int>();
     public List<Edge> new_edges = new List<Edge>();
     public List<int> subMeshTriangles = new List<int>();
+    public Dictionary<Tuple<int, int>, Edge> newEdgeDict;
+    List<Edge> new_edges_created = new List<Edge>();
+    int maxIter = 1;
 
-
-    // public NewVertexSplit(List<Edge> edges) {
-    //     new_edges = edges;
-    // }
+    public NewVertexSplit(int iterations) {
+        maxIter = iterations;
+    }
 
     Vector3 FindMidpoint(Vertex a, Vertex b) {
         return (a.position + b.position) / 2;
@@ -28,21 +31,7 @@ public class NewVertexSplit : MonoBehaviour
         return newVertex;
     }
 
-
-    List<Edge> GetSharedTriangleEdges(Edge e) {
-        Edge startEdge = e;
-        Edge curr_edge = startEdge;
-        List<Edge> triangleEdges = new List<Edge>();
-
-        do {
-            curr_edge = curr_edge.next;
-            triangleEdges.Add(curr_edge);
-        } while (curr_edge != startEdge && curr_edge != null); 
-
-        return triangleEdges;
-    }
-
-    Edge FindLongestEdge() {
+    Tuple<Edge, float> FindLongestEdge() {
         float maxLength = float.MinValue;
         Edge longestEdge = null;
 
@@ -53,127 +42,214 @@ public class NewVertexSplit : MonoBehaviour
                 longestEdge = e;
             }
         }
-        return longestEdge;
+        Debug.Log("edgeLength: " + maxLength);
+        // return (longestEdge, maxLength);
+        return Tuple.Create(longestEdge, maxLength);
     }
 
-    Edge GetUncommonEdge(Edge startEdge) {
-        Edge edge1 = startEdge;
-        Edge edge2 = startEdge.next;
-        Edge edge3 = startEdge.next.next;
+    Tuple<Edge, float> FindLongestValidEdge() {
+        float maxLength = float.MinValue;
+        Edge longestValidEdge = null;
 
-        // Identify edges to exclude
-        HashSet<Edge> excludeEdges = new HashSet<Edge> {
-            startEdge, 
-            startEdge.next,
-            startEdge.opposite
-        };
+        foreach (var e in new_edges) {
+            float edgeLength = Vector3.Distance(e.vertex.position, e.next.vertex.position);
+            var edgeKey = Tuple.Create(e.opposite.vertex.index, e.opposite.next.vertex.index);
 
-        // Check each edge and return the one not in the exclude list
-        if (!excludeEdges.Contains(edge1)) return edge1;
-        if (!excludeEdges.Contains(edge2)) return edge2;
-        if (!excludeEdges.Contains(edge3)) return edge3;
+            if (newEdgeDict.ContainsKey(edgeKey) && edgeLength > maxLength) {
+                maxLength = edgeLength;
+                longestValidEdge = e;
+            }
+        }
 
-        return null; // No uncommon edge found
-
-        // Edge currEdge = startEdge;
-        // List<Edge> triangleEdges = new List<Edge>();
-
-        // // Collect all edges of the triangle
-        // do {
-        //     currEdge = currEdge.next;
-        //     triangleEdges.Add(currEdge);
-        // } while (currEdge != startEdge && currEdge != null);
-
-        // // Identify edges to exclude (startEdge, startEdge.next, startEdge.opposite)
-        // HashSet<Edge> excludeEdges = new HashSet<Edge> {
-        //     startEdge, 
-        //     startEdge.next,
-        //     startEdge.opposite
-        // };
-
-        // // Find the edge that is not in the exclude list
-        // foreach (var edge in triangleEdges) {
-        //     if (!excludeEdges.Contains(edge)) {
-        //         return edge; // Return the uncommon edge
-        //     }
-        // }
-
-        // return null; // No uncommon edge found (degenerate case)
+        Debug.Log("Valid longest edge length: " + maxLength);
+        return Tuple.Create(longestValidEdge, maxLength);
     }
 
+    int counter = 0;
+    public void EdgeSplit() {
+        // Tuple<Edge, float> edgeToSplit = null;
+        
+        do {
+            var edgeData = FindLongestValidEdge();
+            Edge edgeToSplit = edgeData.Item1;
 
-    public void EdgeSplitWithNewVertex() {
-        Edge edge = FindLongestEdge();
+            if (edgeToSplit == null) {
+                Debug.Log("No valid edge found in newEdgeDict. Stopping edge split.");
+                break; // Exit loop if no valid edge is found
+            }
+
+            Debug.Log("SPLIT NUMBER " + counter);
+            Debug.Log("Edge and longest length: " + edgeToSplit + " " + edgeData.Item2);
+
+            EdgeSplitWithNewVertex(edgeToSplit);
+
+            // new_edges.Clear();
+            new_edges.AddRange(new_edges_created);
+            new_edges_created.Clear();
+
+            counter++;
+        } while (counter != maxIter);
+        // } while (edgeToSplit.Item2 > 0.01f);
+    }
+
+    public void EdgeSplitWithNewVertex(Edge edge) {
+        // Edge edge = FindLongestEdge();
+        Edge opposite = edge.opposite;        
+
+        // Debug code to visualize which edge is getting split
+        GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        sphere.transform.position = edge.vertex.position;
+        sphere.transform.localScale = Vector3.one * 0.001f;
+        sphere.GetComponent<Renderer>().material.color = Color.cyan;
+        GameObject sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        sphere2.transform.position = edge.next.vertex.position;
+        sphere2.transform.localScale = Vector3.one * 0.001f;
+        sphere2.GetComponent<Renderer>().material.color = Color.blue;
+
+        // new midpoint vertex
         Vertex newVertex = AddNewVertex(edge);
                
-        // split edge and create two new edges
+        // split edge and create two new edges from original edge
         Edge e1 = new Edge(edge.vertex); // From start vertex to midpoint
         Edge e2 = new Edge(newVertex);   // From midpoint to end vertex
 
-        e1.next = e2;
+
+        Edge prev = FindPreviousInternalEdge(edge);
+        Edge oppPrev = FindPreviousInternalEdge(opposite);
+        // Debug.Log("did we get a prev? " + prev);
+
+        // edge splitting first triangle with its opposite
+        Edge e3 = new Edge(newVertex);
+        e3.next = prev; // previous edge
+        Edge e3opp = new Edge(e3.next.vertex); //previous edge
+                  
+        e1.next = e3;
         e2.next = edge.next;
+        e3opp.next = e2; 
 
-        // e1.opposite = e2.opposite; // Update opposites if necessary
-        // e2.opposite = e1;
-
-        // edge.vertex = newVertex;   // Update the original edge to point to the new vertex
-        // edge.next = e2;  
+        // edge splitting second triangle with its opposite
+        // first set opposites of newly created small edges  
+        // original edge functions as e2opp      
+        Edge e1opp = new Edge(e1.next.vertex);
+        Edge e4 = new Edge(newVertex);
+        e4.next = oppPrev; // previous edge
+        Edge e4opp = new Edge(e4.next.vertex);   
         
-        new_edges.Add(e1);
-        new_edges.Add(e2);
+        e1opp.next = opposite.next;
+        edge.next = e4; // this is e2opp;
+        e4opp.next = e1opp;  
 
-        // Add these triangles to triangle list 
-        Edge x = GetUncommonEdge(edge);
-        Edge y = GetUncommonEdge(edge.opposite);
+        // Edge e3 = new Edge(newVertex);
+        // e3.next = prev; // previous edge
+        // Edge e3opp = new Edge(e3.next.vertex); //previous edge
+        // e3opp.next = e2;        
+        
+        // e1.next = e3;
+        // e2.next = edge.next;
+        // edge.next = e1;
 
-        // GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        //         sphere.transform.position = x.vertex.position;
-        //         sphere.transform.localScale = Vector3.one * 0.001f;
-        //         sphere.GetComponent<Renderer>().material.color = Color.yellow;
-        //         GameObject sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        //         sphere2.transform.position = y.vertex.position;
-        //         sphere2.transform.localScale = Vector3.one * 0.001f;
-        //         sphere2.GetComponent<Renderer>().material.color = Color.yellow;
+        // // edge splitting second triangle with its opposite
+        // // first set opposites of newly created small edges
+        // Debug.Log("check opp" + opposite);
+        // Edge oppPrev = FindPreviousInternalEdge(opposite);
+        // Edge e1opp = new Edge(e1.next.vertex);
+        // Edge e2opp = new Edge(e2.next.vertex);
 
-        new_triangles = subMeshTriangles;
+        // Edge e4 = new Edge(newVertex);
+        // e4.next = oppPrev; // previous edge
+        // Edge e4opp = new Edge(e4.next.vertex); //previous edge
+        // e4opp.next = e2opp;        
+        
+        // e1opp.next = opposite.next;
+        // e2opp.next = e4;
 
-        new_triangles.Add(e1.vertex.index);
-        new_triangles.Add(newVertex.index);
-        new_triangles.Add(x.vertex.index);
+        // set all edge opposites of new edges
+        e1.opposite = e1opp;
+        e1opp.opposite = e1;
+        e2.opposite = edge; //e2opp;
+        edge.opposite = e2;
+        e3.opposite = e3opp;
+        e3opp.opposite = e3;
+        e4.opposite = e4opp;
+        e4opp.opposite = e4;
 
-        new_triangles.Add(x.vertex.index);
-        new_triangles.Add(newVertex.index);
-        new_triangles.Add(e2.next.vertex.index);
+        // Create triangles
+        AddNewTriangle(e1opp);
+        AddNewTriangle(e2);
+        AddNewTriangle(e3);
+        AddNewTriangle(e4);
 
-        new_triangles.Add(y.vertex.index);
-        new_triangles.Add(newVertex.index);
-        new_triangles.Add(e1.vertex.index);
+        // Add triangles that were not effected by the split
+        AddUnaffectedTriangles(edge, opposite);
 
-        new_triangles.Add(e2.next.vertex.index);
-        new_triangles.Add(newVertex.index);
-        new_triangles.Add(y.vertex.index);
+    }
 
-        // AddTriangle(edge.vertex.index, edge.next.vertex.index, edge.next.next.vertex.index);
-        // RemoveTriangle(edge.vertex.index, edge.next.vertex.index, edge.next.next.vertex.index);
-        // new_edges.Remove(edge);
-        // new_triangles = subMeshTriangles.Concat(new_triangles).ToList();
+    private void AddNewTriangle(Edge edge) {
+        new_triangles.Add(edge.vertex.index);
+        new_triangles.Add(edge.next.vertex.index);
+        new_triangles.Add(edge.next.next.vertex.index);
 
-        // foreach(var t in subMeshTriangles) {
-        //     if (t != edge.vertex.index || t != edge.next.vertex.index || t != edge.next.next.vertex.index) {
-        //         new_triangles.Add(t);
+        new_edges_created.Add(edge);
+        
+        var b = Tuple.Create(edge.vertex.index, edge.next.vertex.index);
+        newEdgeDict[b] = edge;
+    }
+
+    private void AddUnaffectedTriangles(Edge edge, Edge opposite) {
+        HashSet<Edge> affectedEdges = new HashSet<Edge> {
+            edge, edge.next, edge.next.next,
+            opposite, opposite.next, opposite.next.next
+        };
+
+        foreach (Edge e in new_edges) {
+            // Skip affected edges
+            if (affectedEdges.Contains(e)) continue;
+
+            // Check if the edge forms a triangle
+            if (e.next != null && e.next.next != null && e.next.next.next == e) {
+                AddNewTriangle(e);
+            }
+        }
+    }
+
+    Edge FindPreviousInternalEdge(Edge startEdge) {
+        // Edge curr_edge = startEdge;
+        // Edge prev_edge = null;
+
+        // // Traverse edges in a circular loop
+        // do {
+        //     // Move to the previous edge by following the opposite and its next
+        //     curr_edge = curr_edge.next;
+
+        //     // If we loop back to the start edge, stop
+        //     if (curr_edge == startEdge) {
+        //         break;
         //     }
-        // }
-        // HashSet<int> verticesToRemove = new HashSet<int> {
-        //     edge.vertex.index,
-        //     edge.next.vertex.index,
-        //     edge.next.next.vertex.index
-        // };
 
-        // // Remove all triangles that contain any of the vertices in the verticesToRemove set
-        // new_triangles = new_triangles.Where(triangle => 
-        //     !verticesToRemove.Contains(triangle)).ToList();
+        //     // Keep track of the previous edge
+        //     prev_edge = curr_edge;
+        // } while (curr_edge != null);
 
-        // Debug.Log("" + new_triangles.Count);
+        // return prev_edge;
+        Edge curr_edge = startEdge;
+        Edge prev_edge = null;
+        int safetyCounter = 0;
+
+        do {
+            safetyCounter++;
+            if (safetyCounter > 100) {
+                Debug.LogError("Infinite loop detected in FindPreviousInternalEdge!");
+                break;
+            }
+
+            curr_edge = curr_edge.next;
+
+            if (curr_edge == startEdge) break;
+
+            prev_edge = curr_edge;
+        } while (curr_edge != null);
+
+        return prev_edge;
     }
 
     public void Reset() {
@@ -181,53 +257,6 @@ public class NewVertexSplit : MonoBehaviour
         // triangles.Clear();
         new_triangles.Clear();
         // new_edges.Clear();
-    }
-
-    void AddTriangle(int p, int q, int r) {
-        for (int i = 0; i < triangles.Count; i+=3) {
-            int a = triangles[i];
-            int b = triangles[i + 1];
-            int c = triangles[i + 2];
-            // Debug.Log("remove check: " + a + " " + b + " " + c + " " + p + " " + q + " " + r);
-
-            // Check if the triangle matches (p, q, r) in any order
-            if ((a == p && b == q && c == r) ||
-                (a == p && b == r && c == q) ||
-                (a == q && b == p && c == r) ||
-                (a == q && b == r && c == p) ||
-                (a == r && b == p && c == q) ||
-                (a == r && b == q && c == p)) 
-            {
-                Debug.Log("triangle found, removing....");
-                // Remove this specific triangle
-                triangles.RemoveRange(i, 3);
-                // break;
-                
-            }
-        }
-    }
-
-    void RemoveTriangle(int p, int q, int r) {
-        for (int t = 0; t < triangles.Count; t += 3) {
-            int a = triangles[t];
-            int b = triangles[t + 1];
-            int c = triangles[t + 2];
-            // Debug.Log("remove check: " + a + " " + b + " " + c + " " + p + " " + q + " " + r);
-
-            // Check if the triangle matches (p, q, r) in any order
-            if ((a == p && b == q && c == r) ||
-                (a == p && b == r && c == q) ||
-                (a == q && b == p && c == r) ||
-                (a == q && b == r && c == p) ||
-                (a == r && b == p && c == q) ||
-                (a == r && b == q && c == p)) 
-            {
-                Debug.Log("triangle found, removing....");
-                // Remove this specific triangle
-                triangles.RemoveRange(t, 3);
-                // break;
-            }
-        }
     }
 
     public List<int> GetTriangles() {

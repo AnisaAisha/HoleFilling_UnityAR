@@ -27,7 +27,8 @@ public class CreateMesh : MonoBehaviour
     Texture2D texture;
     List<int> subMeshTriangles;
     SimplifyMesh simplify;
-    NewVertexSplit vertexSplit = new NewVertexSplit();
+    NewVertexSplit vertexSplit;
+    bool halfEdgeFlag = false;
 
     // Public variables
     public TextAsset pointCloudFile;
@@ -35,6 +36,7 @@ public class CreateMesh : MonoBehaviour
     public int minHoleEdges = 2;
     public float minNeighborDistance = 0.1f;
     public float triangleCreationRadius = 0.0005f;
+    public int vertexSplitIterations = 2;
     public Method holeFillingMethod;
     public enum Method {
         Centroid,
@@ -51,6 +53,7 @@ public class CreateMesh : MonoBehaviour
     {
         halfedgeMesh = new HalfedgeMesh();
         loopSplit = new LoopSplitting(minNeighborDistance);
+        vertexSplit = new NewVertexSplit(vertexSplitIterations);
         GetPoints();
         CreateMeshFromPoints();
         IdentifyHoles();
@@ -547,11 +550,16 @@ public class CreateMesh : MonoBehaviour
     
 
     void UpdateMesh() {
+        Material tempMat = meshGameObj.GetComponent<Renderer>().material;
+        MeshRenderer renderer = meshGameObj.GetComponent<MeshRenderer>();
+
         mesh.Clear();
         mesh.vertices = vertices.ToArray();
         mesh.triangles = triangles.ToArray();
         mesh.RecalculateNormals();
         meshGameObj.GetComponent<MeshFilter>().mesh = mesh;
+
+        renderer.material = tempMat;
         // holes_list.Clear();
     }
 
@@ -559,23 +567,37 @@ public class CreateMesh : MonoBehaviour
         // SimplifyMesh s = new SimplifyMesh(loopSplit.GetNewEdges());
         // List<int> subMeshTriangles = loopSplit.GetSubmesh();
         // simplify.triangles = subMeshTriangles;
-        simplify.EdgeFlip();
+        simplify = new SimplifyMesh(loopSplit.GetNewEdges());
+        simplify.newEdgeDict = loopSplit.newEdgeDict;
+        simplify.triangles = subMeshTriangles; //triangles.ToList();
+        simplify.halfedgeMesh = halfedgeMesh;
+
+        // simplify.EdgeFlip();
+        simplify.EdgeFlipPublic();
 
         // mesh.vertices = vertices.ToArray();
+        // mesh.triangles.Clear();
         
-
-        mesh.subMeshCount = 2;
-        // mesh.SetTriangles(triangles.ToArray(), 0);
-        mesh.SetTriangles(simplify.new_triangles.ToArray(), 1);
         // Debug.Log("flipped triangles: " + simplify.new_triangles.Count);
         // triangles = loopSplit.GetUpdatedTriangles();            
         // mesh.triangles = triangles.ToArray();
+        int[] tempTriangles = mesh.triangles;
+        Material tempMat = meshGameObj.GetComponent<Renderer>().material;
+        // mesh.Clear();
+
+        // mesh.vertices = vertices.ToArray();
+        // mesh.subMeshCount = 2;
+        // mesh.SetTriangles(tempTriangles.ToArray(), 0);
+        mesh.SetTriangles(simplify.new_triangles.ToArray(), 1);
+        // subMeshTriangles = simplify.new_triangles;
+
+        mesh.RecalculateBounds();
         mesh.RecalculateNormals();
         MeshRenderer renderer = meshGameObj.GetComponent<MeshRenderer>();
         Material newMat = new Material(Shader.Find("Standard"));
         newMat.color = Color.yellow;
         Material[] materials = new Material[] {
-            meshGameObj.GetComponent<Renderer>().material,
+            tempMat,
             mat
             // newMat
         };            
@@ -592,18 +614,19 @@ public class CreateMesh : MonoBehaviour
             loopSplit.totalCount = hole.Count;
             loopSplit.halfedgeMesh = halfedgeMesh;
 
-            loopSplit.TriangulateHole(hole, null, null);
-            subMeshTriangles = new List<int>();
-            List<Edge> newedges = loopSplit.GetNewEdges();
-            Debug.Log("new edges count: " + newedges.Count);
-            simplify = new SimplifyMesh(loopSplit.GetNewEdges());
-
-            // new code
-            // loopSplit.NewTriangulateHole(hole, null, null);
+            // loopSplit.TriangulateHole(hole, null, null);
             // subMeshTriangles = new List<int>();
             // List<Edge> newedges = loopSplit.GetNewEdges();
             // Debug.Log("new edges count: " + newedges.Count);
             // simplify = new SimplifyMesh(loopSplit.GetNewEdges());
+
+            // new code
+            loopSplit.NewTriangulateHole(hole, null, null);
+            subMeshTriangles = new List<int>();
+            List<Edge> newedges = loopSplit.GetNewEdges();
+            Debug.Log("new edges count: " + newedges.Count);
+            halfedgeMesh = loopSplit.halfedgeMesh;
+            // simplify.halfedgeMesh = loopSplit.halfedgeMesh;
             
             // Debugging code
             // bestv1 = loopSplit.bestv1;
@@ -615,7 +638,7 @@ public class CreateMesh : MonoBehaviour
             vertices = loopSplit.GetUpdatedVertices();
             mesh.vertices = vertices.ToArray();
             subMeshTriangles = loopSplit.GetSubmesh();
-            simplify.triangles = triangles; 
+            // simplify.triangles = triangles; 
             // simplify.new_triangles = subMeshTriangles;
             // if (hole.Count != 6) subMeshTriangles = loopSplit.GetSubmesh();
             // Debug.Log("sub mesh count: " + subMeshTriangles.Count);
@@ -623,6 +646,7 @@ public class CreateMesh : MonoBehaviour
             mesh.subMeshCount = 2;
             mesh.SetTriangles(triangles.ToArray(), 0);
             mesh.SetTriangles(subMeshTriangles.ToArray(), 1);
+            // simplify.triangles = triangles; //subMeshTriangles;
             // triangles = loopSplit.GetUpdatedTriangles();            
             // mesh.triangles = triangles.ToArray();
             mesh.RecalculateNormals();
@@ -653,19 +677,20 @@ public class CreateMesh : MonoBehaviour
 
     void PerformVertexSplit() {
         // vertexSplit = new NewVertexSplit(loopSplit.GetNewEdges());
-        vertexSplit.new_edges = loopSplit.all_edges.ToList(); //GetNewEdges();
-        vertexSplit.triangles = loopSplit.GetUpdatedTriangles(); //subMeshTriangles;
+        vertexSplit.new_edges = loopSplit.GetNewEdges(); //loopSplit.all_edges.ToList(); //GetNewEdges();
+        vertexSplit.vertices = loopSplit.GetUpdatedVertices();
+        vertexSplit.halfedgeMesh = halfedgeMesh;
+        vertexSplit.newEdgeDict = loopSplit.newEdgeDict;
 
-        vertexSplit.vertices = loopSplit.GetUpdatedVertices(); //uniqueVertices.ToList();
-        vertexSplit.subMeshTriangles = subMeshTriangles;
-        vertexSplit.EdgeSplitWithNewVertex();
+        // Perform the actual vertex split
+        // vertexSplit.EdgeSplitWithNewVertex();
+        vertexSplit.EdgeSplit();
 
+        // setting new splitted triangles with updated vertices
         mesh.vertices = vertexSplit.vertices.ToArray();
-        Debug.Log("after vertex split; " + vertexSplit.vertices.Count);
-        mesh.subMeshCount = 2;
-        // mesh.SetTriangles(vertexSplit.triangles.ToArray(), 0);
-        // subMeshTriangles = subMeshTriangles.Concat(vertexSplit.new_triangles).ToList();
         mesh.SetTriangles(vertexSplit.new_triangles.ToArray(), 1);
+        // List<int> temp = new List<int>();
+        // mesh.SetTriangles(temp, 1);
 
         mesh.RecalculateNormals();
         MeshRenderer renderer = meshGameObj.GetComponent<MeshRenderer>();
@@ -679,24 +704,18 @@ public class CreateMesh : MonoBehaviour
     }
 
     bool showBoundaries = false;
-    int counter = 0;
     void CreateHole() {
         Ray inputRay = Camera.main.ScreenPointToRay(Input.mousePosition);
         RaycastHit hit;
-        // float radius = 0.0005f;
-        // Debug.DrawRay(inputRay.origin, inputRay.direction * 1000, Color.red, 20f);
 
 		if (Physics.Raycast(inputRay, out hit, Mathf.Infinity)) {
             MeshFilter meshFilter = hit.collider.GetComponent<MeshFilter>();
 
             if (meshFilter != null) {
-                // Debug.Log("did we find a mesh filter");
                 int hitIdx = hit.triangleIndex;
                 isClicked = false;
                 List<int> currTriangles = mesh.triangles.ToList();
                 List<int> newTriangles = new List<int>();
-                Debug.Log("hit point world space: " + hit.point);
-                List<Vector3> newVertices = new List<Vector3>();
 
                 for (int i = 0; i < currTriangles.Count; i += 3)
                 {
@@ -713,20 +732,15 @@ public class CreateMesh : MonoBehaviour
                         newTriangles.Add(currTriangles[i + 1]);
                         newTriangles.Add(currTriangles[i + 2]);
 
-                        // newVertices.Add(v1);
-                        // newVertices.Add(v2);
-                        // newVertices.Add(v3);
                     } else {
                         Debug.Log("removing triangle...");
-                        halfedgeMesh.RemoveTriangle(currTriangles[i], currTriangles[i + 1], currTriangles[i + 2], counter);
-                        // counter++;
+                        halfedgeMesh.RemoveTriangle(currTriangles[i], currTriangles[i + 1], currTriangles[i + 2]);
                     }
                     
                 }
                 halfedgeMesh.RemoveAllEdges();
 
                 // Update the mesh with the filtered triangles
-                // mesh.vertices = newVertices.ToArray();
                 mesh.triangles = newTriangles.ToArray();
                 triangles = newTriangles;
                 
@@ -734,7 +748,6 @@ public class CreateMesh : MonoBehaviour
                 mesh.RecalculateBounds();
                 mesh.RecalculateNormals();
                 halfedgeMesh.edgesToRemove.Clear();
-                counter = 0;
             }
 		}
     }
@@ -776,28 +789,6 @@ public class CreateMesh : MonoBehaviour
         // rotationMatrix.SetRow(2, new Vector4(plane.normal.x, plane.normal.y, plane.normal.z, 0)); // Z-axis
         // rotationMatrix.SetRow(3, new Vector4(0, 0, 0, 1)); // Homogeneous row
 
-        // Vector3 center = Vector3.zero;
-        // foreach (var e in hole_edges)
-        // {
-        //     center += e.vertex.position;
-        // }
-        // center /= hole_edges.Count;
-
-        // Vector3 relativePosition = Camera.main.transform.position - center;
-
-        // // Step 3: Apply the Rotation
-        // Vector3 rotatedPosition = rotationMatrix.MultiplyPoint3x4(relativePosition);
-
-        // // Step 4: Translate Back
-        // Camera.main.transform.position = rotatedPosition + center;
-
-        // // Optional: Rotate the Object Itself
-        // Camera.main.transform.rotation *= rotationMatrix.rotation; 
-        //Quaternion.LookRotation(rotationMatrix.GetColumn(2), rotationMatrix.GetColumn(1));
-
-        // meshGameObj.transform.position = rotatedPosition + center;
-        // meshGameObj.transform.rotation *= rotationMatrix.rotation; 
-
         List<Vector3> hole_vertices = hole_edges.Select(edge => edge.vertex.position).ToList();
         Vector3 center = Vector3.zero;
         foreach (var vertex in hole_vertices) {
@@ -821,26 +812,10 @@ public class CreateMesh : MonoBehaviour
         }
         center /= hole_vertices.Count;
 
-        // Step 4: Position and orient the camera
         float aspect = (float)Screen.width / (float)Screen.height;
-
-        // Define the distance of the camera based on the hole size
-        // float maxDistance = hole_vertices.Max(v => Vector3.Distance(center, v)) / Mathf.Tan(Mathf.Deg2Rad * (Camera.main.fieldOfView / aspect));
-
-        // // Position the camera along the negative normal direction
-        // Camera.main.transform.position = center - normal * (maxDistance + 0.075f);
-
-        // // Orient the camera to look at the center of the hole
-        // Camera.main.transform.LookAt(center);
-
-        // // Optionally adjust the camera's up vector to ensure proper orientation
-        // Camera.main.transform.up = Vector3.up;
 
         Camera.main.transform.position = center + (-normal) * 0.05f; //- new Vector3(0f, 0f, 0.05f);
         // Vector3 cameraToCenter = center - Camera.main.transform.position;
-
-        // Ensure the camera is always positioned correctly relative to the hole
-        // Camera.main.transform.position = center - cameraToCenter.normalized * 0.05f;
         Camera.main.transform.LookAt(center);
     }
 
@@ -909,6 +884,25 @@ public class CreateMesh : MonoBehaviour
             if (holeFillingMethod == Method.Centroid) FillHolesCentroid();
             else FillHolesDecimation();
         }
+    }
+
+    void VisualizeCurrentEdge(Edge e) {
+        Vector3 source = e.vertex.position;
+        Vector3 target = e.next.vertex.position;
+
+        // Face face = e.face;
+        Vector3 diff = target - source;
+        Vector3 midpoint = (diff * 0.5f) + source;
+
+        GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        sphere.transform.position = midpoint;
+        sphere.transform.localScale = Vector3.one * 0.003f;
+        sphere.GetComponent<Renderer>().material.color = Color.red;
+
+        GameObject sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        sphere2.transform.position = new Vector3(midpoint.x + 0.1f, midpoint.y + 0.1f, midpoint.z + 0.1f);
+        sphere2.transform.localScale = Vector3.one * 0.002f;
+        sphere2.GetComponent<Renderer>().material.color = Color.red;
     }
 
     public void ExportMeshToPLY(string filePath)

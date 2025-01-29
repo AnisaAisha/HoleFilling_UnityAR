@@ -370,5 +370,5 @@ MonoBehaviour:
   minHoleEdges: 2
   minNeighborDistance: 0.001
   triangleCreationRadius: 0.002
-  holeFillingMethod: 0
+  holeFillingMethod: 1
   threshold: 0.01
