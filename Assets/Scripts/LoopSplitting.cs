@@ -58,7 +58,7 @@ public class LoopSplitting //: MonoBehaviour
     private bool IsCorrectWindingOrder(Vector3 p0, Vector3 p1, Vector3 p2)
     {
         Vector3 normal = Vector3.Cross(p1 - p0, p2 - p0);
-        return normal.z <= 0; // Assumes a right-hand rule with a positive Z-axis normal
+        return Vector3.Dot(normal, Vector3.up) > 0; // checking in the direction of normal
     }
 
     private Edge FindOppositeEdge(Edge edge)
@@ -163,20 +163,6 @@ public class LoopSplitting //: MonoBehaviour
         if (hole_vertices.Count <= 3)
         {
             Debug.Log("new triangulate we hit base case " + hole_vertices.Count);
-
-            // for (int i = 0; i < 3; i++) {
-            //     vertices.Add(hole_vertices[i].vertex.position);
-            // }
-
-            // // Ensure the correct winding order
-            // if (!IsCorrectWindingOrder(vertices[vertices.Count - 3], vertices[vertices.Count - 2], vertices[vertices.Count - 1])) {
-            //     (vertices[vertices.Count - 2], vertices[vertices.Count - 1]) = (vertices[vertices.Count - 1], vertices[vertices.Count - 2]);
-            // }
-
-            // // Add indices for the triangle
-            // for (int i = 3; i > 0; i--) {
-            //     subMeshTriangles.Add(vertices.Count - i);
-            // }
             List<int> triangleIndices = new List<int>();
 
             for (int i = 0; i < 3; i++) {

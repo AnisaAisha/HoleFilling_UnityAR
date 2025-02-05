@@ -186,7 +186,7 @@ public class HalfedgeMesh //: MonoBehaviour
         var v32 = Tuple.Create(e2.next.vertex.index, e2.vertex.index);
         var v13 = Tuple.Create(e3.next.vertex.index, e3.vertex.index);
         
-        // Debug.Log("comparing..." + v12 + " " + v23 + " " + v31);
+        Debug.Log("comparing..." + v12 + " " + v23 + " " + v31);
         // Debug.Log("another check: " + e1.opposite + " e2 " + e2.opposite + " e3 " + e3.opposite);
 
         if (edgesDict.ContainsKey(v12)) {

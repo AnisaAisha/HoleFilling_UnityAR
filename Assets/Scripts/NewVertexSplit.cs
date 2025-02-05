@@ -13,12 +13,9 @@ public class NewVertexSplit : MonoBehaviour
     public List<Edge> new_edges = new List<Edge>();
     public List<int> subMeshTriangles = new List<int>();
     public Dictionary<Tuple<int, int>, Edge> newEdgeDict;
-    List<Edge> new_edges_created = new List<Edge>();
-    int maxIter = 1;
+    public List<Edge> new_edges_created = new List<Edge>();
+    int maxIter = 2;
 
-    public NewVertexSplit(int iterations) {
-        maxIter = iterations;
-    }
 
     Vector3 FindMidpoint(Vertex a, Vertex b) {
         return (a.position + b.position) / 2;
@@ -52,10 +49,15 @@ public class NewVertexSplit : MonoBehaviour
         Edge longestValidEdge = null;
 
         foreach (var e in new_edges) {
+        // foreach (var entry in newEdgeDict) {  // Iterate over the dictionary directly
+            // Edge e = entry.Value; 
             float edgeLength = Vector3.Distance(e.vertex.position, e.next.vertex.position);
             var edgeKey = Tuple.Create(e.opposite.vertex.index, e.opposite.next.vertex.index);
 
+            Debug.Log("checking edge lengths for each edge ...." + edgeLength + " " + maxLength);
+
             if (newEdgeDict.ContainsKey(edgeKey) && edgeLength > maxLength) {
+            // if (edgeLength > maxLength) {
                 maxLength = edgeLength;
                 longestValidEdge = e;
             }
@@ -67,33 +69,20 @@ public class NewVertexSplit : MonoBehaviour
 
     int counter = 0;
     public void EdgeSplit() {
-        // Tuple<Edge, float> edgeToSplit = null;
-        
-        do {
-            var edgeData = FindLongestValidEdge();
-            Edge edgeToSplit = edgeData.Item1;
+        // Check for longest edge, then split
+        var edgeData = FindLongestValidEdge();
+        Edge edgeToSplit = edgeData.Item1;
 
-            if (edgeToSplit == null) {
-                Debug.Log("No valid edge found in newEdgeDict. Stopping edge split.");
-                break; // Exit loop if no valid edge is found
-            }
+        if (edgeToSplit == null) {
+            Debug.Log("No valid edge found in newEdgeDict. Stopping edge split.");
+            return;
+        }
 
-            Debug.Log("SPLIT NUMBER " + counter);
-            Debug.Log("Edge and longest length: " + edgeToSplit + " " + edgeData.Item2);
-
-            EdgeSplitWithNewVertex(edgeToSplit);
-
-            // new_edges.Clear();
-            new_edges.AddRange(new_edges_created);
-            new_edges_created.Clear();
-
-            counter++;
-        } while (counter != maxIter);
-        // } while (edgeToSplit.Item2 > 0.01f);
+        Debug.Log("Edge and longest length: " + edgeToSplit + " " + edgeData.Item2);
+        EdgeSplitWithNewVertex(edgeToSplit);
     }
 
     public void EdgeSplitWithNewVertex(Edge edge) {
-        // Edge edge = FindLongestEdge();
         Edge opposite = edge.opposite;        
 
         // Debug code to visualize which edge is getting split
@@ -113,10 +102,8 @@ public class NewVertexSplit : MonoBehaviour
         Edge e1 = new Edge(edge.vertex); // From start vertex to midpoint
         Edge e2 = new Edge(newVertex);   // From midpoint to end vertex
 
-
         Edge prev = FindPreviousInternalEdge(edge);
         Edge oppPrev = FindPreviousInternalEdge(opposite);
-        // Debug.Log("did we get a prev? " + prev);
 
         // edge splitting first triangle with its opposite
         Edge e3 = new Edge(newVertex);
@@ -139,30 +126,6 @@ public class NewVertexSplit : MonoBehaviour
         edge.next = e4; // this is e2opp;
         e4opp.next = e1opp;  
 
-        // Edge e3 = new Edge(newVertex);
-        // e3.next = prev; // previous edge
-        // Edge e3opp = new Edge(e3.next.vertex); //previous edge
-        // e3opp.next = e2;        
-        
-        // e1.next = e3;
-        // e2.next = edge.next;
-        // edge.next = e1;
-
-        // // edge splitting second triangle with its opposite
-        // // first set opposites of newly created small edges
-        // Debug.Log("check opp" + opposite);
-        // Edge oppPrev = FindPreviousInternalEdge(opposite);
-        // Edge e1opp = new Edge(e1.next.vertex);
-        // Edge e2opp = new Edge(e2.next.vertex);
-
-        // Edge e4 = new Edge(newVertex);
-        // e4.next = oppPrev; // previous edge
-        // Edge e4opp = new Edge(e4.next.vertex); //previous edge
-        // e4opp.next = e2opp;        
-        
-        // e1opp.next = opposite.next;
-        // e2opp.next = e4;
-
         // set all edge opposites of new edges
         e1.opposite = e1opp;
         e1opp.opposite = e1;
@@ -173,7 +136,7 @@ public class NewVertexSplit : MonoBehaviour
         e4.opposite = e4opp;
         e4opp.opposite = e4;
 
-        // Create triangles
+        // Create new triangles
         AddNewTriangle(e1opp);
         AddNewTriangle(e2);
         AddNewTriangle(e3);
@@ -181,7 +144,6 @@ public class NewVertexSplit : MonoBehaviour
 
         // Add triangles that were not effected by the split
         AddUnaffectedTriangles(edge, opposite);
-
     }
 
     private void AddNewTriangle(Edge edge) {
@@ -238,7 +200,7 @@ public class NewVertexSplit : MonoBehaviour
         do {
             safetyCounter++;
             if (safetyCounter > 100) {
-                Debug.LogError("Infinite loop detected in FindPreviousInternalEdge!");
+                Debug.Log("Infinite loop detected in FindPreviousInternalEdge!");
                 break;
             }
 
@@ -255,8 +217,12 @@ public class NewVertexSplit : MonoBehaviour
     public void Reset() {
         // vertices.Clear();
         // triangles.Clear();
-        new_triangles.Clear();
+        // new_triangles.Clear();
         // new_edges.Clear();
+
+        // new_edges.Clear();
+        new_edges.AddRange(new_edges_created);
+        new_edges_created.Clear();
     }
 
     public List<int> GetTriangles() {

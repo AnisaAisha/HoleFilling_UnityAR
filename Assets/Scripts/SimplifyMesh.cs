@@ -8,16 +8,13 @@ public class SimplifyMesh : MonoBehaviour
     float minAR = float.MinValue;
     int maxIter = 2;
     Vector3[] vertices;
-    List<Edge> new_edges = new List<Edge>();
-    List<Edge> updated_edges = new List<Edge>();
+    public List<Edge> new_edges = new List<Edge>();
+    public List<Edge> updated_edges = new List<Edge>();
+    List<Edge> should_flip = new List<Edge>();
     public HalfedgeMesh halfedgeMesh;
     public List<int> triangles;
     public List<int> new_triangles = new List<int>();
     public Dictionary<Tuple<int, int>, Edge> newEdgeDict;
-
-    // public SimplifyMesh(HalfedgeMesh halfedgeMesh, Vector3[] vertices, int[] triangles) {
-    //     this.halfedgeMesh = halfedgeMesh;
-    // }
 
     public SimplifyMesh(List<Edge> edges, int iter) {
         new_edges = edges;
@@ -26,13 +23,12 @@ public class SimplifyMesh : MonoBehaviour
 
     public void EdgeFlipPublic() {
         // while (minAR > 1.25f) {
-        int counter = 0;
+        // int counter = 0;
         List<Edge> persistentEdges = new List<Edge>(new_edges);
         List<int> persistentTriangles = new List<int>(new_triangles);
-        // while (counter < 3) {
         for(int i = 0; i < maxIter; i++) {
             Debug.Log("COUNTER CHECK " + i + " " + new_edges.Count);
-            EdgeFlip(i);
+            EdgeFlip();
 
             persistentEdges.AddRange(new_edges);
             persistentTriangles.AddRange(new_triangles);
@@ -43,13 +39,30 @@ public class SimplifyMesh : MonoBehaviour
             new_edges.Clear();
             new_edges.AddRange(updated_edges);
             updated_edges.Clear();
-            // counter++;
         }
         new_edges = persistentEdges;
         new_triangles = persistentTriangles;
+
+        // List<Edge> persistentEdges = new List<Edge>(new_edges);
+        // List<int> persistentTriangles = new List<int>(new_triangles);
+        
+        // EdgeFlip();
+
+        // persistentEdges.AddRange(new_edges);
+        // persistentTriangles.AddRange(new_triangles);
+
+        // triangles.Clear();
+        // triangles.AddRange(new_triangles);
+        // new_triangles.Clear();
+        // new_edges.Clear();
+        // new_edges.AddRange(updated_edges);
+        // updated_edges.Clear();
+
+        // new_edges = persistentEdges;
+        // new_triangles = persistentTriangles;
     }
 
-    public void EdgeFlip(int i) {
+    public void EdgeFlip() {
         Debug.Log("new edges: " + new_edges.Count);
 
         // Operate only on newly created edges to fill the hole
@@ -59,32 +72,6 @@ public class SimplifyMesh : MonoBehaviour
             var a = Tuple.Create(oppEdge.vertex.index, oppEdge.next.vertex.index);
             Debug.Log("does opp exist? " + oppEdge);
             if (edge.opposite != null && newEdgeDict.ContainsKey(a)) {
-
-                // GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                // sphere.transform.position = edge.vertex.position;
-                // sphere.transform.localScale = Vector3.one * 0.001f;
-                // sphere.GetComponent<Renderer>().material.color = Color.red;
-                // GameObject sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                // sphere2.transform.position = edge.next.vertex.position;
-                // sphere2.transform.localScale = Vector3.one * 0.001f;
-                // sphere2.GetComponent<Renderer>().material.color = Color.red;
-                // GameObject sphere3 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                // sphere3.transform.position = edge.next.next.vertex.position;
-                // sphere3.transform.localScale = Vector3.one * 0.001f;
-                // sphere3.GetComponent<Renderer>().material.color = Color.red;
-
-                // GameObject sphere4 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                // sphere4.transform.position = oppEdge.vertex.position;
-                // sphere4.transform.localScale = Vector3.one * 0.001f;
-                // sphere4.GetComponent<Renderer>().material.color = Color.blue;
-                // GameObject sphere5 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                // sphere5.transform.position = oppEdge.next.vertex.position;
-                // sphere5.transform.localScale = Vector3.one * 0.001f;
-                // sphere5.GetComponent<Renderer>().material.color = Color.blue;
-                // GameObject sphere6 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                // sphere6.transform.position = oppEdge.next.next.vertex.position;
-                // sphere6.transform.localScale = Vector3.one * 0.001f;
-                // sphere6.GetComponent<Renderer>().material.color = Color.blue;
 
                 // Calculate aspect ratios of current triangle and its opposite
                 float currAR = CalculateAspectRatio(edge.vertex.position, edge.next.vertex.position, edge.next.next.vertex.position);
@@ -99,59 +86,46 @@ public class SimplifyMesh : MonoBehaviour
                 float newCurrAR = CalculateAspectRatio(e0.vertex.position, e1.vertex.position, opp1.vertex.position);
                 float newOppAR = CalculateAspectRatio(opp0.vertex.position, opp1.vertex.position, e1.vertex.position);
 
-                Debug.Log("old and new aspect ratios at " + i + " : " + currAR + " " + oppAR + " " + newCurrAR + " " + newOppAR);
+                Debug.Log("old and new aspect ratios : " + currAR + " " + oppAR + " " + newCurrAR + " " + newOppAR);
 
-                // if (((newCurrAR < currAR && newOppAR < oppAR) || (newCurrAR < oppAR && newOppAR < currAR)) && newCurrAR > 0 && newOppAR > 0) {
                 if ((newCurrAR < currAR && newOppAR < oppAR) && newCurrAR > 0 && newOppAR > 0) {
-                    Debug.Log("flipping edge....");
-                    Debug.Log("new aspect ratios: " + newCurrAR + " " + newOppAR);
+                    should_flip.Add(edge);
+                //     Debug.Log("flipping edge....");
+                //     Debug.Log("new aspect ratios: " + newCurrAR + " " + newOppAR);
 
-                    RemoveTriangle(edge.vertex.index, e0.vertex.index, e1.vertex.index);
-                    RemoveTriangle(oppEdge.vertex.index, opp0.vertex.index, opp1.vertex.index);
+                //     RemoveTriangle(edge.vertex.index, e0.vertex.index, e1.vertex.index);
+                //     RemoveTriangle(oppEdge.vertex.index, opp0.vertex.index, opp1.vertex.index);
 
-                    // first triangle flip
-                    Edge new_edge = new Edge(opp1.vertex);
-                    new_edge.next = e1;
-                    e1.next = opp0;
-                    opp0.next = new_edge;
-                    // opposite triangle flip
-                    Edge new_edge_opp = new Edge(e1.vertex);
-                    new_edge_opp.next = opp1;
-                    e0.next = new_edge_opp;
-                    opp1.next = e0;
+                //     // first triangle flip
+                //     Edge new_edge = new Edge(opp1.vertex);
+                //     new_edge.next = e1;
+                //     e1.next = opp0;
+                //     opp0.next = new_edge;
+                //     // opposite triangle flip
+                //     Edge new_edge_opp = new Edge(e1.vertex);
+                //     new_edge_opp.next = opp1;
+                //     e0.next = new_edge_opp;
+                //     opp1.next = e0;
 
-                    new_edge.opposite = new_edge_opp;
-                    new_edge_opp.opposite = new_edge;
+                //     new_edge.opposite = new_edge_opp;
+                //     new_edge_opp.opposite = new_edge;
 
-                    var b = Tuple.Create(new_edge.vertex.index, new_edge.next.vertex.index);
-                    var c = Tuple.Create(new_edge_opp.vertex.index, new_edge_opp.next.vertex.index);
-                    newEdgeDict[b] = new_edge;
-                    newEdgeDict[c] = new_edge_opp;
+                //     var b = Tuple.Create(new_edge.vertex.index, new_edge.next.vertex.index);
+                //     var c = Tuple.Create(new_edge_opp.vertex.index, new_edge_opp.next.vertex.index);
+                //     newEdgeDict[b] = new_edge;
+                //     newEdgeDict[c] = new_edge_opp;
 
-                    // if (!IsCorrectWindingOrder(e0.vertex.position, e1.vertex.position, opp1.vertex.position))
-                    // {
-                    //     (e1, opp1) = (opp1, e1);
-                    // }
-                    AddNewTriangle(new_edge);
-                    AddNewTriangle(new_edge_opp);
+                //     AddNewTriangle(new_edge);
+                //     AddNewTriangle(new_edge_opp);
 
-                    updated_edges.Add(new_edge);
-                    updated_edges.Add(new_edge_opp);
+                //     updated_edges.Add(new_edge);
+                //     updated_edges.Add(new_edge_opp);
     
-                    // Debug.Log("after flip: " + i + " " + triangles.Count);
+                //     // Debug.Log("after flip: " + i + " " + triangles.Count);
                 } else {
-                    Debug.Log("Flipping will not improve aspect ratios!! " + i);
-                    // if (!IsCorrectWindingOrder(edge.vertex.position, e0.vertex.position, e1.vertex.position))
-                    // {
-                    //     (e0, e1) = (e1, e0);
-                    // }
+                    Debug.Log("Flipping will not improve aspect ratios!! ");
+                    
                     AddNewTriangle(edge);
-
-                    // if (!IsCorrectWindingOrder(oppEdge.vertex.position, opp0.vertex.position, opp1.vertex.position))
-                    // {
-                    //     (opp0, opp1) = (opp1, opp0);
-                    // }
-
                     AddNewTriangle(oppEdge);
 
                     updated_edges.Add(edge);
@@ -161,6 +135,51 @@ public class SimplifyMesh : MonoBehaviour
             }
         }
 
+        foreach (var edge in should_flip) {
+            Debug.Log("flipping edge....");
+            // Debug.Log("new aspect ratios: " + newCurrAR + " " + newOppAR);
+            Edge oppEdge = edge.opposite;
+            Edge e0 = edge.next;
+            Edge e1 = edge.next.next;
+            Edge opp0 = oppEdge.next;
+            Edge opp1 = oppEdge.next.next;
+
+            RemoveTriangle(edge.vertex.index, e0.vertex.index, e1.vertex.index);
+            RemoveTriangle(oppEdge.vertex.index, opp0.vertex.index, opp1.vertex.index);
+
+            // first triangle flip
+            Edge new_edge = new Edge(opp1.vertex);
+            new_edge.next = e1;
+            e1.next = opp0;
+            opp0.next = new_edge;
+            // opposite triangle flip
+            Edge new_edge_opp = new Edge(e1.vertex);
+            new_edge_opp.next = opp1;
+            e0.next = new_edge_opp;
+            opp1.next = e0;
+
+            new_edge.opposite = new_edge_opp;
+            new_edge_opp.opposite = new_edge;
+
+            var b = Tuple.Create(new_edge.vertex.index, new_edge.next.vertex.index);
+            var c = Tuple.Create(new_edge_opp.vertex.index, new_edge_opp.next.vertex.index);
+            newEdgeDict[b] = new_edge;
+            newEdgeDict[c] = new_edge_opp;
+
+            AddNewTriangle(new_edge);
+            AddNewTriangle(new_edge_opp);
+
+            updated_edges.Add(new_edge);
+            updated_edges.Add(new_edge_opp);
+
+            // Debug.Log("after flip: " + i + " " + triangles.Count);
+        }
+    }
+
+    public void Reset() {
+        new_edges.Clear();
+        new_edges.AddRange(updated_edges);
+        updated_edges.Clear();
     }
 
     private bool IsCorrectWindingOrder(Vector3 p0, Vector3 p1, Vector3 p2)
@@ -193,7 +212,6 @@ public class SimplifyMesh : MonoBehaviour
                 Debug.Log("triangle found, removing....");
                 // Remove this specific triangle
                 new_triangles.RemoveRange(t, 3);
-                // break;
             }
         }
     }
@@ -204,10 +222,8 @@ public class SimplifyMesh : MonoBehaviour
         float distC = Vector3.Distance(C, A);
 
         float s = ( distA + distB + distC ) / 2f;
-        // Debug.Log("s: " + s);
         float ar = (distA * distB * distC) / (8f * (s - distA) * (s - distB) * (s - distC));
         float k = (8f * (s - distA) * (s - distB) * (s - distC));
-        // Debug.Log("denom: " + k);
         if (k == 0) return 0;
         return ar;
     }
