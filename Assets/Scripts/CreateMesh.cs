@@ -27,10 +27,10 @@ public class CreateMesh : MonoBehaviour
     Texture2D texture;
     List<int> subMeshTriangles;
     SimplifyMesh simplify;
-    NewVertexSplit vertexSplit;
+    EdgeSplit edgeSplit;
     SmoothMesh smoothMesh;
     List<Edge> current_hole_edges = new List<Edge>();
-    bool halfEdgeFlag = false;
+    bool isEdgeSplit = false;
 
     // Public variables
     public TextAsset pointCloudFile;
@@ -40,6 +40,7 @@ public class CreateMesh : MonoBehaviour
     public float triangleCreationRadius = 0.0005f;
     public int edgeFlipIters = 2;
     public float smoothingFactor = 0.1f;
+    public float splitLengthFactor = 0.8f;
     public Method holeFillingMethod;
     public enum Method {
         Centroid,
@@ -58,7 +59,7 @@ public class CreateMesh : MonoBehaviour
 
         // Mesh modification operations
         loopSplit = new LoopSplitting(minNeighborDistance);
-        vertexSplit = new NewVertexSplit();
+        edgeSplit = new EdgeSplit(splitLengthFactor);
         smoothMesh = new SmoothMesh(smoothingFactor);
         GetPoints();
         CreateMeshFromPoints();
@@ -615,7 +616,7 @@ public class CreateMesh : MonoBehaviour
         current_hole_edges = simplify.new_edges;
         newEdgeDict = simplify.newEdgeDict;
     }
-
+    HashSet<Vertex> current_boundary_vertices = new HashSet<Vertex>();
     void FillHolesDecimation() {
         if (halfedgeMesh != null && current_hole_idx < holes_list.Count)
         {
@@ -623,6 +624,10 @@ public class CreateMesh : MonoBehaviour
             List<Edge> hole = holes_list[current_hole_idx];
             loopSplit.totalCount = hole.Count;
             loopSplit.halfedgeMesh = halfedgeMesh;
+
+            foreach (var e in hole) {
+                current_boundary_vertices.Add(e.vertex);
+            }
 
             // loopSplit.TriangulateHole(hole, null, null);
             // subMeshTriangles = new List<int>();
@@ -682,19 +687,18 @@ public class CreateMesh : MonoBehaviour
     }
 
     void PerformEdgeSplit() {
-        // vertexSplit = new NewVertexSplit(loopSplit.GetNewEdges());
         Debug.Log("new edge length: " + current_hole_edges.Count);
-        vertexSplit.new_edges = current_hole_edges;
-        vertexSplit.vertices = mesh.vertices.ToList();
-        vertexSplit.halfedgeMesh = halfedgeMesh;
-        vertexSplit.newEdgeDict = newEdgeDict;
+        edgeSplit.new_edges = current_hole_edges;
+        edgeSplit.vertices = mesh.vertices.ToList();
+        edgeSplit.halfedgeMesh = halfedgeMesh;
+        edgeSplit.newEdgeDict = newEdgeDict;
 
         // Perform the actual vertex split
-        vertexSplit.EdgeSplit();
+        edgeSplit.CreateEdgeSplit();
 
         // setting new splitted triangles with updated vertices
-        mesh.vertices = vertexSplit.vertices.ToArray();
-        mesh.SetTriangles(vertexSplit.new_triangles.ToArray(), 1);
+        mesh.vertices = edgeSplit.vertices.ToArray();
+        mesh.SetTriangles(edgeSplit.new_triangles.ToArray(), 1);
 
         // Update the mesh
         mesh.RecalculateNormals();
@@ -707,66 +711,48 @@ public class CreateMesh : MonoBehaviour
         meshGameObj.GetComponent<MeshFilter>().mesh = mesh;
 
         // Reset and update global variables
-        vertexSplit.Reset();
-        current_hole_edges = vertexSplit.new_edges;
-        newEdgeDict = vertexSplit.newEdgeDict;
+        edgeSplit.Reset();
+        current_hole_edges = edgeSplit.new_edges;
+        newEdgeDict = edgeSplit.newEdgeDict;
+
+        isEdgeSplit = true;
+        smoothing_edges.AddRange(edgeSplit.new_vertex_edges);
     }
 
+    List<Edge> smoothing_edges = new List<Edge>();
     void PerformSmoothing() {
-        // smoothMesh.hole_edges = loopSplit.GetNewEdges();
-        smoothMesh.vertices = mesh.vertices.ToList();
-        smoothMesh.SetHoleEdges(current_hole_edges);
-        smoothMesh.SetHalfEdge(halfedgeMesh);
-        smoothMesh.LaplacianSmoothing();
+        if (isEdgeSplit) {
+            // smoothMesh.hole_edges = loopSplit.GetNewEdges();
+            smoothMesh.vertices = mesh.vertices.ToList();
+            smoothMesh.boundary_vertices = current_boundary_vertices;
+            smoothMesh.SetHoleEdges(smoothing_edges);
+            smoothMesh.SetHalfEdge(halfedgeMesh);
+            smoothMesh.LaplacianSmoothing();
 
-        // Update the Mesh
-        
-        mesh.vertices = smoothMesh.vertices.ToArray();
-        // mesh.SetTriangles(vertexSplit.new_triangles.ToArray(), 1);
-        // subMeshTriangles = FixTriangleWindingOrder(mesh.vertices.ToList(), subMeshTriangles);
-        // List<int> tris = FixTriangleWindingOrder(mesh.vertices.ToList(), mesh.triangles.ToList());
-        // mesh.SetTriangles(tris, 0);
-        // mesh.SetTriangles(subMeshTriangles, 1);
+            // Update the Mesh
+            
+            mesh.vertices = smoothMesh.vertices.ToArray();
+            // mesh.SetTriangles(edgeSplit.new_triangles.ToArray(), 1);
+            // subMeshTriangles = FixTriangleWindingOrder(mesh.vertices.ToList(), subMeshTriangles);
+            // List<int> tris = FixTriangleWindingOrder(mesh.vertices.ToList(), mesh.triangles.ToList());
+            // mesh.SetTriangles(tris, 0);
+            // mesh.SetTriangles(subMeshTriangles, 1);
 
-        mesh.RecalculateNormals();
-        mesh.RecalculateBounds();
-        MeshRenderer renderer = meshGameObj.GetComponent<MeshRenderer>();
-        Material[] materials = new Material[] {
-            meshGameObj.GetComponent<Renderer>().material,
-            mat
-        };            
-        renderer.materials = materials;
-        meshGameObj.GetComponent<MeshFilter>().mesh = mesh;
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            MeshRenderer renderer = meshGameObj.GetComponent<MeshRenderer>();
+            Material[] materials = new Material[] {
+                meshGameObj.GetComponent<Renderer>().material,
+                mat
+            };            
+            renderer.materials = materials;
+            meshGameObj.GetComponent<MeshFilter>().mesh = mesh;
 
-        current_hole_edges = smoothMesh.hole_edges;
-    }
-
-    List<int> FixTriangleWindingOrder(List<Vector3> vertices, List<int> triangles) {
-        for (int i = 0; i < triangles.Count; i += 3) {
-            int v0 = triangles[i];
-            int v1 = triangles[i + 1];
-            int v2 = triangles[i + 2];
-
-            Vector3 normal = Vector3.Cross(
-                vertices[v1] - vertices[v0],
-                vertices[v2] - vertices[v0]
-            ).normalized;
-
-            // Compute reference normal (expected outward direction)
-            Vector3 faceCenter = (vertices[v0] + vertices[v1] + vertices[v2]) / 3f;
-            Vector3 expectedNormal = (faceCenter - Vector3.zero).normalized; // Adjust as needed
-
-            // If the normal is incorrect, swap two vertices
-            if (Vector3.Dot(normal, expectedNormal) < 0) {
-                // Swap v1 and v2 to fix winding order
-                triangles[i + 1] = v2;
-                triangles[i + 2] = v1;
-            }
+            smoothing_edges = smoothMesh.hole_edges;
+        } else {
+            Debug.Log("Cannot smooth hole before edge split!");
         }
-        return triangles;
     }
-
-
 
     bool showBoundaries = false;
     void CreateHole() {
@@ -911,11 +897,13 @@ public class CreateMesh : MonoBehaviour
             isDrawing = true;
             current_hole_idx = (current_hole_idx + 1) % holes_list.Count;
             Debug.Log("Current hole vertex count: " + holes_list[current_hole_idx].Count);
+            current_boundary_vertices.Clear();
         }
         if (Input.GetKeyDown(KeyCode.P)) {
             isDrawing = true;
             current_hole_idx = (current_hole_idx - 1 + holes_list.Count) % holes_list.Count;
             Debug.Log("Current hole vertex count: " + holes_list[current_hole_idx].Count);
+            current_boundary_vertices.Clear();
         }
 
         // Hole Focus and Rotation. 

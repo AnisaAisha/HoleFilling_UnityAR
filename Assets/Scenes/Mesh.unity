@@ -157,11 +157,11 @@ MonoBehaviour:
   minHoleEdges: 2
   minNeighborDistance: 0.1
   triangleCreationRadius: 0.0005
-  vertexSplitIterations: 2
   edgeFlipIters: 2
+  smoothingFactor: 0.1
+  splitLengthFactor: 0.8
   holeFillingMethod: 0
   threshold: 0.04
-  lookSpeed: 2
 --- !u!4 &1098009759
 Transform:
   m_ObjectHideFlags: 0
@@ -373,8 +373,8 @@ MonoBehaviour:
   minHoleEdges: 2
   minNeighborDistance: 0.001
   triangleCreationRadius: 0.002
-  vertexSplitIterations: 5
   edgeFlipIters: 2
+  smoothingFactor: 0.5
+  splitLengthFactor: 0.8
   holeFillingMethod: 1
   threshold: 0.01
-  lookSpeed: 2

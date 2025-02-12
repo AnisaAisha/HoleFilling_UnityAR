@@ -186,11 +186,11 @@ public class HalfedgeMesh //: MonoBehaviour
         var v32 = Tuple.Create(e2.next.vertex.index, e2.vertex.index);
         var v13 = Tuple.Create(e3.next.vertex.index, e3.vertex.index);
         
-        Debug.Log("comparing..." + v12 + " " + v23 + " " + v31);
+        // Debug.Log("comparing..." + v12 + " " + v23 + " " + v31);
         // Debug.Log("another check: " + e1.opposite + " e2 " + e2.opposite + " e3 " + e3.opposite);
 
         if (edgesDict.ContainsKey(v12)) {
-            Debug.Log("found first edge ");// + edgesDict[v12]  + " 1 " + edgesDict[v12].opposite + " 2 " + edgesDict[v12].next);
+            // Debug.Log("found first edge ");// + edgesDict[v12]  + " 1 " + edgesDict[v12].opposite + " 2 " + edgesDict[v12].next);
             edgesDict[v12] = e1;
             edgesDict[v21] = e1.opposite;
             edgesDict[v21].opposite = edgesDict[v12];
@@ -204,8 +204,8 @@ public class HalfedgeMesh //: MonoBehaviour
             // }
             // Debug.Log("found first edge after" + edgesDict[v12]  + " 1 " + edgesDict[v12].opposite + " 2 " + edgesDict[v12].next);
         } else if (edgesDict.ContainsKey(v21)) {
-            Debug.Log("did not find 1");
-            Debug.Log("opp key found for 1");
+            // Debug.Log("did not find 1");
+            // Debug.Log("opp key found for 1");
             if (e1.opposite != null) {
                 edgesDict[v12] = e1;
                 edgesDict[v21] = e1.opposite;
@@ -213,7 +213,7 @@ public class HalfedgeMesh //: MonoBehaviour
             }
         }
         if (edgesDict.ContainsKey(v23)) {
-            Debug.Log("found second edge");
+            // Debug.Log("found second edge");
             edgesDict[v23] = e2;
             edgesDict[v32] = e2.opposite;
             edgesDict[v32].opposite = edgesDict[v23];
@@ -226,8 +226,8 @@ public class HalfedgeMesh //: MonoBehaviour
             //     edgesDict[v23].opposite = edgesDict[v32];
             // }
         } else if (edgesDict.ContainsKey(v32)){
-            Debug.Log("did not find 2");
-            Debug.Log("opp key found for 2");
+            // Debug.Log("did not find 2");
+            // Debug.Log("opp key found for 2");
             if (e2.opposite != null) {
                 edgesDict[v23] = e2;
                 edgesDict[v32] = e2.opposite;
@@ -235,7 +235,7 @@ public class HalfedgeMesh //: MonoBehaviour
             }
         }
         if (edgesDict.ContainsKey(v13)) {
-            Debug.Log("found third edge" + edgesDict[v13] + " " + edgesDict[v31]);
+            // Debug.Log("found third edge" + edgesDict[v13] + " " + edgesDict[v31]);
 
             // if (edgesDict[v13] == null) {
                 // edgesDict[v13] = e3.opposite; //new Edge(e3.next.vertex); //newEdges[v12].opposite;
@@ -248,10 +248,10 @@ public class HalfedgeMesh //: MonoBehaviour
                 // Debug.Log("checking third edge: " + edgesDict[v31] + " opp " + edgesDict[v31].opposite + " 13: " + edgesDict[v13] + " opp " + edgesDict[v13].opposite);
             // }
         } else if (edgesDict.ContainsKey(v31)){
-            Debug.Log("did not find 3");
-            Debug.Log("opp key found for 3");
+            // Debug.Log("did not find 3");
+            // Debug.Log("opp key found for 3");
         } else {
-            Debug.Log("did not find 3 at all no matter what ");
+            // Debug.Log("did not find 3 at all no matter what ");
             edgesDict[v31] = e3;
             edgesDict[v13] = e3.opposite; //null
         }    

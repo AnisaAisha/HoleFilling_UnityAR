@@ -168,6 +168,10 @@ public class LoopSplitting //: MonoBehaviour
             for (int i = 0; i < 3; i++) {
                 int vertexIndex = hole_vertices[i].vertex.index; // Retrieve the existing vertex index
                 triangleIndices.Add(vertexIndex);
+
+                Edge currentEdge = hole_vertices[i];
+                new_edge_list.Add(currentEdge);
+                newEdgeDict.Add(Tuple.Create(currentEdge.vertex.index, currentEdge.next.vertex.index), currentEdge);
             }
 
             // Ensure the correct winding order
@@ -177,6 +181,34 @@ public class LoopSplitting //: MonoBehaviour
 
             // Add indices for the triangle
             subMeshTriangles.AddRange(triangleIndices);
+
+            // GameObject sphere4 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            // sphere4.transform.position = hole_vertices[2].vertex.position;
+            // sphere4.transform.localScale = Vector3.one * 0.001f;
+            // sphere4.GetComponent<Renderer>().material.color = Color.blue;
+            // GameObject sphere5 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            // sphere5.transform.position = hole_vertices[2].next.vertex.position;
+            // sphere5.transform.localScale = Vector3.one * 0.001f;
+            // sphere5.GetComponent<Renderer>().material.color = Color.blue;
+            // GameObject sphere6 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            // sphere6.transform.position = hole_vertices[2].next.next.vertex.position;
+            // sphere6.transform.localScale = Vector3.one * 0.001f;
+            // sphere6.GetComponent<Renderer>().material.color = Color.blue;
+
+            // if (hole_vertices[2].opposite != null && hole_vertices[2].opposite.next != null && hole_vertices[2].opposite.next.next != null) {
+            //     GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            //     sphere.transform.position = hole_vertices[2].opposite.vertex.position;
+            //     sphere.transform.localScale = Vector3.one * 0.001f;
+            //     sphere.GetComponent<Renderer>().material.color = Color.red;
+            //     GameObject sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            //     sphere2.transform.position = hole_vertices[2].opposite.next.vertex.position;
+            //     sphere2.transform.localScale = Vector3.one * 0.001f;
+            //     sphere2.GetComponent<Renderer>().material.color = Color.red;
+            //     GameObject sphere3 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            //     sphere3.transform.position = hole_vertices[2].opposite.next.next.vertex.position;
+            //     sphere3.transform.localScale = Vector3.one * 0.001f;
+            //     sphere3.GetComponent<Renderer>().material.color = Color.red;
+            // }
 
             // add triangle to half edge DS at this point
             halfedgeMesh.AddTriangle(hole_vertices[0], hole_vertices[1], hole_vertices[2], newEdgeDict); //, new_edge_list[new_edge_list.Count - 1]);
@@ -210,8 +242,8 @@ public class LoopSplitting //: MonoBehaviour
             else currentEdge.next = previousEdge;
 
             loopACopy.Add(currentEdge);
-            new_edge_list.Add(currentEdge);
-            newEdgeDict.Add(Tuple.Create(currentEdge.vertex.index, currentEdge.next.vertex.index), currentEdge);
+            // new_edge_list.Add(currentEdge);
+            // newEdgeDict.Add(Tuple.Create(currentEdge.vertex.index, currentEdge.next.vertex.index), currentEdge);
 
             previousEdge = currentEdge;
         }
@@ -241,8 +273,8 @@ public class LoopSplitting //: MonoBehaviour
                 else currentEdge.next = previousEdge;
 
                 loopBCopy.Add(currentEdge);
-                new_edge_list.Add(currentEdge);
-                newEdgeDict.Add(Tuple.Create(currentEdge.vertex.index, currentEdge.next.vertex.index), currentEdge);
+                // new_edge_list.Add(currentEdge);
+                // newEdgeDict.Add(Tuple.Create(currentEdge.vertex.index, currentEdge.next.vertex.index), currentEdge);
 
                 previousEdge = currentEdge;
             }
