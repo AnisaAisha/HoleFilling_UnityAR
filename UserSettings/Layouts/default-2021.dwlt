@@ -145,7 +145,7 @@ MonoBehaviour:
   m_MinSize: {x: 400, y: 200}
   m_MaxSize: {x: 32384, y: 16192}
   vertical: 0
-  controlID: 38
+  controlID: 73
 --- !u!114 &7
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -170,7 +170,7 @@ MonoBehaviour:
   m_MinSize: {x: 300, y: 200}
   m_MaxSize: {x: 24288, y: 16192}
   vertical: 1
-  controlID: 39
+  controlID: 74
 --- !u!114 &8
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -196,7 +196,7 @@ MonoBehaviour:
   m_MinSize: {x: 300, y: 100}
   m_MaxSize: {x: 24288, y: 8096}
   vertical: 0
-  controlID: 40
+  controlID: 75
 --- !u!114 &9
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -425,7 +425,7 @@ MonoBehaviour:
       containerId: overlay-container--right
       floating: 0
       collapsed: 0
-      displayed: 1
+      displayed: 0
       snapOffset: {x: 0, y: 0}
       snapOffsetDelta: {x: 0, y: 0}
       snapCorner: 0
@@ -718,9 +718,9 @@ MonoBehaviour:
   m_PlayAudio: 0
   m_AudioPlay: 0
   m_Position:
-    m_Target: {x: 0.044079162, y: -0.26342732, z: -0.012795582}
+    m_Target: {x: 0.036839727, y: -0.20916983, z: -0.08196029}
     speed: 2
-    m_Value: {x: 0.044079162, y: -0.26342732, z: -0.012795582}
+    m_Value: {x: 0.036839727, y: -0.20916983, z: -0.08196029}
   m_RenderMode: 0
   m_CameraMode:
     drawMode: 2
@@ -767,13 +767,13 @@ MonoBehaviour:
     m_GridAxis: 1
     m_gridOpacity: 0.5
   m_Rotation:
-    m_Target: {x: 0.34532678, y: 0.04041611, z: -0.013496829, w: 0.93769175}
+    m_Target: {x: 0.47091696, y: -0.11720001, z: 0.06500705, w: 0.872136}
     speed: 2
-    m_Value: {x: 0.3452695, y: 0.040409405, z: -0.01349459, w: 0.9375362}
+    m_Value: {x: 0.47083557, y: -0.11717975, z: 0.06499582, w: 0.87198526}
   m_Size:
-    m_Target: 0.052751258
+    m_Target: 0.00852702
     speed: 2
-    m_Value: 0.05285126
+    m_Value: 0.00852702
   m_Ortho:
     m_Target: 0
     speed: 2
@@ -923,9 +923,9 @@ MonoBehaviour:
   m_SceneHierarchy:
     m_TreeViewState:
       scrollPos: {x: 0, y: 0}
-      m_SelectedIDs: 2e4e0000
-      m_LastClickedID: 20014
-      m_ExpandedIDs: 36fbffff
+      m_SelectedIDs: 2a81feff
+      m_LastClickedID: 0
+      m_ExpandedIDs: 38fbffff
       m_RenameOverlay:
         m_UserAcceptedRename: 0
         m_Name: 
@@ -1542,7 +1542,7 @@ MonoBehaviour:
     m_CachedPref: 239
     m_ControlHash: 1412526313
     m_PrefName: Preview_InspectorPreview
-  m_LastInspectedObjectInstanceID: 20014
+  m_LastInspectedObjectInstanceID: -1
   m_LastVerticalScrollValue: 0
   m_GlobalObjectId: 
   m_InspectorMode: 0
@@ -1589,23 +1589,23 @@ MonoBehaviour:
     m_SkipHidden: 0
     m_SearchArea: 1
     m_Folders:
-    - Assets/Scenes
+    - Assets/Scripts
     m_Globs: []
     m_OriginalText: 
     m_FilterByTypeIntersection: 0
   m_ViewMode: 1
   m_StartGridSize: 64
   m_LastFolders:
-  - Assets/Scenes
+  - Assets/Scripts
   m_LastFoldersGridSize: -1
   m_LastProjectPath: /Users/anisaaisha/Desktop/GTech/Special Problems/HoleFilling_UnityAR
   m_LockTracker:
     m_IsLocked: 0
   m_FolderTreeState:
-    scrollPos: {x: 0, y: 37.001953}
-    m_SelectedIDs: ea6e0000
-    m_LastClickedID: 28394
-    m_ExpandedIDs: 00000000724e000000ca9a3bffffff7f
+    scrollPos: {x: 0, y: 109.00452}
+    m_SelectedIDs: c6500000
+    m_LastClickedID: 20678
+    m_ExpandedIDs: 00000000744e0000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
       m_Name: 
@@ -1633,7 +1633,7 @@ MonoBehaviour:
     scrollPos: {x: 0, y: 0}
     m_SelectedIDs: 
     m_LastClickedID: 0
-    m_ExpandedIDs: 00000000724e0000
+    m_ExpandedIDs: 00000000744e0000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
       m_Name: 
@@ -1658,9 +1658,9 @@ MonoBehaviour:
       m_Icon: {fileID: 0}
       m_ResourceFile: 
   m_ListAreaState:
-    m_SelectedInstanceIDs: 1a6f0000
-    m_LastClickedInstanceID: 28442
-    m_HadKeyboardFocusLastEvent: 0
+    m_SelectedInstanceIDs: 260b0000
+    m_LastClickedInstanceID: 2854
+    m_HadKeyboardFocusLastEvent: 1
     m_ExpandedInstanceIDs: c6230000823f0000da430000a2d70000b0bf0000b4bf00003e0a0200f6aa000012ab000000ab0000de641200000000000aab00009cb100002c731d00beb900002cb500008cb100002eda0000fafc0000
     m_RenameOverlay:
       m_UserAcceptedRename: 0

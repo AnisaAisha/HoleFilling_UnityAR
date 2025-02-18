@@ -372,9 +372,9 @@ MonoBehaviour:
   mat: {fileID: 2100000, guid: db9da146c42d4469dae86c27dba0f59f, type: 2}
   minHoleEdges: 2
   minNeighborDistance: 0.001
-  triangleCreationRadius: 0.002
+  triangleCreationRadius: 0.005
   edgeFlipIters: 2
-  smoothingFactor: 0.5
+  smoothingFactor: 0.1
   splitLengthFactor: 0.8
   holeFillingMethod: 1
   threshold: 0.01

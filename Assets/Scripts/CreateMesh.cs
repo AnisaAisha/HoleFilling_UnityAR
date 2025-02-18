@@ -26,11 +26,13 @@ public class CreateMesh : MonoBehaviour
     Color[] colors;
     Texture2D texture;
     List<int> subMeshTriangles;
-    SimplifyMesh simplify;
+    EdgeFlip edgeFlip;
     EdgeSplit edgeSplit;
     SmoothMesh smoothMesh;
     List<Edge> current_hole_edges = new List<Edge>();
     bool isEdgeSplit = false;
+    Dictionary<Tuple<int, int>, Edge> newEdgeDict;
+
 
     // Public variables
     public TextAsset pointCloudFile;
@@ -38,13 +40,18 @@ public class CreateMesh : MonoBehaviour
     public int minHoleEdges = 2;
     public float minNeighborDistance = 0.1f;
     public float triangleCreationRadius = 0.0005f;
-    public int edgeFlipIters = 2;
     public float smoothingFactor = 0.1f;
     public float splitLengthFactor = 0.8f;
-    public Method holeFillingMethod;
-    public enum Method {
+    public FillMethod holeFillingMethod;
+    public EdgeFlipMethod edgeFlipMethod;
+    public enum FillMethod {
         Centroid,
         Decimation
+    }
+
+    public enum EdgeFlipMethod {
+        AspectRatio,
+        Circumcircle
     }
 
     
@@ -61,6 +68,7 @@ public class CreateMesh : MonoBehaviour
         loopSplit = new LoopSplitting(minNeighborDistance);
         edgeSplit = new EdgeSplit(splitLengthFactor);
         smoothMesh = new SmoothMesh(smoothingFactor);
+        edgeFlip = new EdgeFlip();
         GetPoints();
         CreateMeshFromPoints();
         IdentifyHoles();
@@ -573,49 +581,7 @@ public class CreateMesh : MonoBehaviour
         renderer.material = tempMat;
         // holes_list.Clear();
     }
-    Dictionary<Tuple<int, int>, Edge> newEdgeDict;
-    void PerformEdgeFlip() {
-        // simplify = new SimplifyMesh(loopSplit.GetNewEdges(), edgeFlipIters);
-        simplify = new SimplifyMesh(current_hole_edges, edgeFlipIters);
-        simplify.newEdgeDict = newEdgeDict;
-        simplify.triangles = subMeshTriangles; //triangles.ToList();
-        simplify.halfedgeMesh = halfedgeMesh;
 
-        // simplify.EdgeFlip();
-        simplify.EdgeFlipPublic();
-
-        // mesh.vertices = vertices.ToArray();
-        // mesh.triangles.Clear();
-        
-        // Debug.Log("flipped triangles: " + simplify.new_triangles.Count);
-        // triangles = loopSplit.GetUpdatedTriangles();            
-        // mesh.triangles = triangles.ToArray();
-        // int[] tempTriangles = mesh.triangles;
-        
-        // mesh.Clear();
-
-        // mesh.vertices = vertices.ToArray();
-        // mesh.subMeshCount = 2;
-        // mesh.SetTriangles(tempTriangles.ToArray(), 0);
-        mesh.SetTriangles(simplify.new_triangles.ToArray(), 1);
-        subMeshTriangles = simplify.new_triangles;
-
-        mesh.RecalculateBounds();
-        mesh.RecalculateNormals();
-        MeshRenderer renderer = meshGameObj.GetComponent<MeshRenderer>();
-        Material tempMat = meshGameObj.GetComponent<Renderer>().material;
-        Material[] materials = new Material[] {
-            tempMat,
-            mat
-        };            
-        renderer.materials = materials;
-        
-        meshGameObj.GetComponent<MeshFilter>().mesh = mesh;
-
-        // simplify.Reset();
-        current_hole_edges = simplify.new_edges;
-        newEdgeDict = simplify.newEdgeDict;
-    }
     HashSet<Vertex> current_boundary_vertices = new HashSet<Vertex>();
     void FillHolesDecimation() {
         if (halfedgeMesh != null && current_hole_idx < holes_list.Count)
@@ -633,7 +599,7 @@ public class CreateMesh : MonoBehaviour
             // subMeshTriangles = new List<int>();
             // List<Edge> newedges = loopSplit.GetNewEdges();
             // Debug.Log("new edges count: " + newedges.Count);
-            // simplify = new SimplifyMesh(loopSplit.GetNewEdges());
+            // edgeFlip = new EdgeFlip(loopSplit.GetNewEdges());
 
             // new code
             loopSplit.NewTriangulateHole(hole, null, null);
@@ -642,7 +608,9 @@ public class CreateMesh : MonoBehaviour
             Debug.Log("new edges count: " + newedges.Count);
             current_hole_edges = newedges;
             halfedgeMesh = loopSplit.halfedgeMesh;
-            // simplify.halfedgeMesh = loopSplit.halfedgeMesh;
+
+            // VisualizeEdges(current_hole_edges);
+            // edgeFlip.halfedgeMesh = loopSplit.halfedgeMesh;
             
             // Debugging code
             // bestv1 = loopSplit.bestv1;
@@ -683,11 +651,55 @@ public class CreateMesh : MonoBehaviour
             sphere2.transform.position = e.next.vertex.position;
             sphere2.transform.localScale = Vector3.one * 0.001f;
             sphere2.GetComponent<Renderer>().material.color = Color.red;
+
+            Debug.Log("Checking opposite..." + e.opposite);
+        }
+    }
+
+     void PerformEdgeFlip() {
+        // edgeFlip = new EdgeFlip(loopSplit.GetNewEdges(), edgeFlipIters);
+        // Debug.Log("before edge flip current edge count: " + current_hole_edges.Count + " " + subMeshTriangles.Count);
+        edgeFlip.new_edges = current_hole_edges;
+        edgeFlip.newEdgeDict = newEdgeDict;
+        edgeFlip.triangles = subMeshTriangles; //triangles.ToList();
+        edgeFlip.halfedgeMesh = halfedgeMesh;
+
+        // bool isFlip = edgeFlip.PerformEdgeFlip();
+        // edgeFlip.EdgeFlipPublic();
+        bool isFlip = edgeFlipMethod == EdgeFlipMethod.AspectRatio ? edgeFlip.PerformEdgeFlip() : edgeFlip.EdgeFlipCircumcircle();
+
+        if (isFlip) {
+            mesh.SetTriangles(edgeFlip.new_triangles.ToArray(), 1);
+            subMeshTriangles = new List<int>(edgeFlip.new_triangles);
+
+            mesh.RecalculateBounds();
+            mesh.RecalculateNormals();
+            MeshRenderer renderer = meshGameObj.GetComponent<MeshRenderer>();
+            Material tempMat = meshGameObj.GetComponent<Renderer>().material;
+            Material[] materials = new Material[] {
+                tempMat,
+                mat
+            };            
+            renderer.materials = materials;
+            
+            meshGameObj.GetComponent<MeshFilter>().mesh = mesh;
+
+            // edgeFlip.Reset();
+            // current_hole_edges.Clear();
+            // current_hole_edges.AddRange(edgeFlip.updated_edges);
+
+            current_hole_edges = new List<Edge>(edgeFlip.updated_edges);
+            newEdgeDict = edgeFlip.newEdgeDict;
+            edgeFlip.Reset();
+
+            // Debug.Log("after edge flip current edge count: " + current_hole_edges.Count + " " + subMeshTriangles.Count);
+        } else {
+            Debug.Log("None of the edges were flipped!");
         }
     }
 
     void PerformEdgeSplit() {
-        Debug.Log("new edge length: " + current_hole_edges.Count);
+        // Debug.Log("before edge split: " + current_hole_edges.Count + " " + subMeshTriangles.Count + " " + edgeSplit.new_triangles.Count);
         edgeSplit.new_edges = current_hole_edges;
         edgeSplit.vertices = mesh.vertices.ToList();
         edgeSplit.halfedgeMesh = halfedgeMesh;
@@ -699,6 +711,7 @@ public class CreateMesh : MonoBehaviour
         // setting new splitted triangles with updated vertices
         mesh.vertices = edgeSplit.vertices.ToArray();
         mesh.SetTriangles(edgeSplit.new_triangles.ToArray(), 1);
+        subMeshTriangles = new List<int>(edgeSplit.new_triangles);
 
         // Update the mesh
         mesh.RecalculateNormals();
@@ -711,12 +724,14 @@ public class CreateMesh : MonoBehaviour
         meshGameObj.GetComponent<MeshFilter>().mesh = mesh;
 
         // Reset and update global variables
-        edgeSplit.Reset();
-        current_hole_edges = edgeSplit.new_edges;
+        
+        current_hole_edges = new List<Edge>(edgeSplit.new_edges_created); //edgeSplit.new_edges;
         newEdgeDict = edgeSplit.newEdgeDict;
+        // Debug.Log("after edge split: " + current_hole_edges.Count + " " + subMeshTriangles.Count +  " " + edgeSplit.new_triangles.Count);
 
         isEdgeSplit = true;
         smoothing_edges.AddRange(edgeSplit.new_vertex_edges);
+        edgeSplit.Reset();
     }
 
     List<Edge> smoothing_edges = new List<Edge>();
@@ -934,7 +949,7 @@ public class CreateMesh : MonoBehaviour
         // Hole filling
         if (isDrawing && Input.GetKeyDown(KeyCode.F)) {
             Debug.Log("filling holes...");
-            if (holeFillingMethod == Method.Centroid) FillHolesCentroid();
+            if (holeFillingMethod == FillMethod.Centroid) FillHolesCentroid();
             else FillHolesDecimation();
         }
     }
