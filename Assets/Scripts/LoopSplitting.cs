@@ -159,7 +159,7 @@ public class LoopSplitting //: MonoBehaviour
         return prevEdge;
     }
     int counter = 0;
-    public void NewTriangulateHole(List<Edge> hole_vertices, Edge v11, Edge v22) {
+    public void NewTriangulateHole(List<Edge> hole_vertices, Edge v11, Edge v22, List<Edge> freshNewEdges, Dictionary<Tuple<int, int>, Edge> freshNewEdgeDict) {
         if (hole_vertices.Count <= 3)
         {
             Debug.Log("new triangulate we hit base case " + hole_vertices.Count);
@@ -170,8 +170,16 @@ public class LoopSplitting //: MonoBehaviour
                 triangleIndices.Add(vertexIndex);
 
                 Edge currentEdge = hole_vertices[i];
-                new_edge_list.Add(currentEdge);
-                newEdgeDict.Add(Tuple.Create(currentEdge.vertex.index, currentEdge.next.vertex.index), currentEdge);
+                // new_edge_list.Add(currentEdge);
+                // newEdgeDict.Add(Tuple.Create(currentEdge.vertex.index, currentEdge.next.vertex.index), currentEdge);
+
+                var key = Tuple.Create(currentEdge.vertex.index, currentEdge.next.vertex.index);
+                // if (new_edges.Contains(currentEdge)) { 
+                if (newEdgeDict.ContainsKey(key)) {
+                //     freshNewEdgeDict.Add(key, currentEdge);
+                //     freshNewEdges.Add(currentEdge);
+                    new_edge_list.Add(newEdgeDict[key]);
+                }
             }
 
             // Ensure the correct winding order
@@ -181,34 +189,6 @@ public class LoopSplitting //: MonoBehaviour
 
             // Add indices for the triangle
             subMeshTriangles.AddRange(triangleIndices);
-
-            // GameObject sphere4 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            // sphere4.transform.position = hole_vertices[2].vertex.position;
-            // sphere4.transform.localScale = Vector3.one * 0.001f;
-            // sphere4.GetComponent<Renderer>().material.color = Color.blue;
-            // GameObject sphere5 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            // sphere5.transform.position = hole_vertices[2].next.vertex.position;
-            // sphere5.transform.localScale = Vector3.one * 0.001f;
-            // sphere5.GetComponent<Renderer>().material.color = Color.blue;
-            // GameObject sphere6 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            // sphere6.transform.position = hole_vertices[2].next.next.vertex.position;
-            // sphere6.transform.localScale = Vector3.one * 0.001f;
-            // sphere6.GetComponent<Renderer>().material.color = Color.blue;
-
-            // if (hole_vertices[2].opposite != null && hole_vertices[2].opposite.next != null && hole_vertices[2].opposite.next.next != null) {
-            //     GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            //     sphere.transform.position = hole_vertices[2].opposite.vertex.position;
-            //     sphere.transform.localScale = Vector3.one * 0.001f;
-            //     sphere.GetComponent<Renderer>().material.color = Color.red;
-            //     GameObject sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            //     sphere2.transform.position = hole_vertices[2].opposite.next.vertex.position;
-            //     sphere2.transform.localScale = Vector3.one * 0.001f;
-            //     sphere2.GetComponent<Renderer>().material.color = Color.red;
-            //     GameObject sphere3 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            //     sphere3.transform.position = hole_vertices[2].opposite.next.next.vertex.position;
-            //     sphere3.transform.localScale = Vector3.one * 0.001f;
-            //     sphere3.GetComponent<Renderer>().material.color = Color.red;
-            // }
 
             // add triangle to half edge DS at this point
             halfedgeMesh.AddTriangle(hole_vertices[0], hole_vertices[1], hole_vertices[2], newEdgeDict); //, new_edge_list[new_edge_list.Count - 1]);
@@ -242,26 +222,35 @@ public class LoopSplitting //: MonoBehaviour
             else currentEdge.next = previousEdge;
 
             loopACopy.Add(currentEdge);
-            // new_edge_list.Add(currentEdge);
-            // newEdgeDict.Add(Tuple.Create(currentEdge.vertex.index, currentEdge.next.vertex.index), currentEdge);
 
             previousEdge = currentEdge;
         }
         // VisualizeHolePoints(loopACopy);
-        NewTriangulateHole(loopACopy, v1, v2);
+        newEdgeDict.Add(Tuple.Create(new_edge.vertex.index, new_edge.next.vertex.index), new_edge);
+        // new_edge_list.Add(new_edge);
+        new_edges.Add(new_edge);
+        NewTriangulateHole(loopACopy, v1, v2, freshNewEdges, freshNewEdgeDict);
 
         // Processing loop B
         List<Edge> loopBCopy = new List<Edge>();
         if (loopB.Count == 3) {
-            Edge new_edge_opp = new Edge(new_edge.next.vertex);
 
-            // Send opposite edges after processing them here.
+            // VisualizeHolePoints(loopB);
+            Edge new_edge_opp = new Edge(new_edge.next.vertex);
+            // GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            // sphere.transform.position = new_edge_opp.vertex.position;
+            // sphere.transform.localScale = Vector3.one * 0.001f;
+            // sphere.GetComponent<Renderer>().material.color = Color.cyan;
+
+            // Debug.Log("does new edge have opp" + new_edge.opposite);
+
             foreach (var e in loopB) {
                 Edge currentEdge = null;
                 if (e == v1) {
                     currentEdge = new_edge_opp;
-                    currentEdge.opposite = e;
-                    e.opposite = currentEdge;
+                    // currentEdge.opposite = e;
+                    // e.opposite = currentEdge;
+                    // new_edge.next = v2;                    
                 }
                 else {
                     currentEdge = new Edge(e.next.vertex);
@@ -278,8 +267,21 @@ public class LoopSplitting //: MonoBehaviour
 
                 previousEdge = currentEdge;
             }
-            new_edge.opposite = new_edge_opp;
-            new_edge_opp.opposite = new_edge;
+            var a = Tuple.Create(v1.vertex.index, new_edge_opp.vertex.index);
+            // new_edge.opposite = new_edge_opp;
+            new_edge_opp.opposite = newEdgeDict[a];
+
+            // var a = Tuple.Create(new_edge.vertex.index, new_edge.next.vertex.index);
+            // var b = Tuple.Create(new_edge_opp.vertex.index, new_edge_opp.next.vertex.index);
+            // if (newEdgeDict.ContainsKey(a)) {
+            //     newEdgeDict[a] = new_edge;
+            // }
+            // if (newEdgeDict.ContainsKey(b)) {
+            //     newEdgeDict[b] = new_edge_opp;
+            // }
+            
+            new_edges.Add(new_edge_opp);
+
             Debug.Log("opp check..." + new_edge.opposite + " nn " + new_edge_opp.opposite);
         } else {
             foreach(var e in loopB) {
@@ -291,7 +293,8 @@ public class LoopSplitting //: MonoBehaviour
             }
         }
         // VisualizeHolePoints(loopBCopy);
-        NewTriangulateHole(loopBCopy, v1, v2);
+        // Debug.Log("loopbcopy " + loopBCopy.Count);
+        NewTriangulateHole(loopBCopy, v1, v2, freshNewEdges, freshNewEdgeDict);
     }
 
 

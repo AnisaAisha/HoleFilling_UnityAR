@@ -43,11 +43,23 @@ public class EdgeSplit : MonoBehaviour
         float maxLength = float.MinValue;
         Edge longestValidEdge = null;
 
-        foreach (var e in new_edges) {
+        // foreach (var e in new_edges) {
+        //     float edgeLength = Vector3.Distance(e.vertex.position, e.next.vertex.position);
+        //     var edgeKey = Tuple.Create(e.opposite.vertex.index, e.opposite.next.vertex.index);
+
+        //     if (newEdgeDict.ContainsKey(edgeKey) && edgeLength > maxLength) {
+        //     // if (e.opposite != null && edgeLength > maxLength) {
+        //         maxLength = edgeLength;
+        //         longestValidEdge = e;
+        //     }
+        // }
+
+        foreach (var kvp in newEdgeDict) {
+            var e = kvp.Value;
             float edgeLength = Vector3.Distance(e.vertex.position, e.next.vertex.position);
             var edgeKey = Tuple.Create(e.opposite.vertex.index, e.opposite.next.vertex.index);
 
-            if (newEdgeDict.ContainsKey(edgeKey) && edgeLength > maxLength) {
+            if (edgeLength > maxLength) {
                 maxLength = edgeLength;
                 longestValidEdge = e;
             }
@@ -61,6 +73,7 @@ public class EdgeSplit : MonoBehaviour
         // CASE 1: EDGE SPLIT ONLY ONE EDGE
         // Check for longest edge, then split
         Edge edgeToSplit = FindLongestValidEdge();
+        // newEdgeDict.Clear();
 
         if (edgeToSplit == null) {
             Debug.Log("No valid edge found in newEdgeDict. Stopping edge split.");
@@ -104,26 +117,26 @@ public class EdgeSplit : MonoBehaviour
     public void EdgeSplitWithNewVertex(Edge edge) {
         Edge oppositeEdge = edge.opposite;   
 
-        new_edges.Remove(edge);
-        new_edges.Remove(oppositeEdge);
-        newEdgeDict.Remove(Tuple.Create(edge.vertex.index, edge.next.vertex.index));
-        newEdgeDict.Remove(Tuple.Create(oppositeEdge.vertex.index, oppositeEdge.next.vertex.index));     
+        // new_edges.Remove(edge);
+        // new_edges.Remove(oppositeEdge);
+        // newEdgeDict.Remove(Tuple.Create(edge.vertex.index, edge.next.vertex.index));
+        // newEdgeDict.Remove(Tuple.Create(oppositeEdge.vertex.index, oppositeEdge.next.vertex.index));     
 
         // Debug code to visualize which edge is getting split
-        GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        sphere.transform.position = edge.vertex.position;
-        sphere.transform.localScale = Vector3.one * 0.001f;
-        sphere.GetComponent<Renderer>().material.color = Color.cyan;
-        GameObject sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        sphere2.transform.position = edge.next.vertex.position;
-        sphere2.transform.localScale = Vector3.one * 0.001f;
-        sphere2.GetComponent<Renderer>().material.color = Color.blue;
+        // GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        // sphere.transform.position = edge.vertex.position;
+        // sphere.transform.localScale = Vector3.one * 0.001f;
+        // sphere.GetComponent<Renderer>().material.color = Color.cyan;
+        // GameObject sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        // sphere2.transform.position = edge.next.vertex.position;
+        // sphere2.transform.localScale = Vector3.one * 0.001f;
+        // sphere2.GetComponent<Renderer>().material.color = Color.blue;
 
         // new midpoint vertex
         Vertex newVertex = AddNewVertex(edge);
 
-        Edge prev = FindPreviousInternalEdge(edge);
-        Edge oppPrev = FindPreviousInternalEdge(oppositeEdge);
+        Edge prev = edge.next.next; //FindPreviousInternalEdge(edge);
+        Edge oppPrev = oppositeEdge.next.next; //FindPreviousInternalEdge(oppositeEdge);
 
         Edge e1 = new Edge(newVertex);
         Edge e2opp = new Edge(newVertex);
@@ -136,15 +149,16 @@ public class EdgeSplit : MonoBehaviour
         e1.next = edge.next;
         edge.next.next = e2;
 
-        edge.next = e2opp;
         e2opp.next = prev;
+        edge.next = e2opp;
 
         og_opp.next = oppositeEdge.next;
-        oppositeEdge.next.next = e3;
         e3.next = og_opp;
-
-        oppositeEdge.next = e3opp;
+        oppositeEdge.next.next = e3;
+        
         e3opp.next = oppPrev;
+        oppositeEdge.next = e3opp;
+        
 
         // assign opposites
         e1.opposite = oppositeEdge; //e1opp;
@@ -165,6 +179,13 @@ public class EdgeSplit : MonoBehaviour
         AddUnaffectedTriangles(edge, oppositeEdge);
 
         new_vertex_edges.Add(e2opp);
+
+        var a = Tuple.Create(e1.vertex.index, e1.next.vertex.index);
+        newEdgeDict[a] = e1;
+        var b = Tuple.Create(e3.vertex.index, e3.next.vertex.index);
+        newEdgeDict[b] = e3;
+        var c = Tuple.Create(e2.vertex.index, e2.next.vertex.index);
+        newEdgeDict[c] = e2;
     }
 
     private void AddNewTriangle(Edge edge) {
@@ -186,10 +207,21 @@ public class EdgeSplit : MonoBehaviour
         // new_triangles.Add(edge.next.next.vertex.index);
 
         new_edges_created.Add(edge);
-        visited_edges.Add(edge);
         
-        var b = Tuple.Create(edge.vertex.index, edge.next.vertex.index);
-        newEdgeDict[b] = edge;
+        var a = Tuple.Create(e1.vertex.index, e1.next.vertex.index);
+        var b = Tuple.Create(e2.vertex.index, e2.next.vertex.index);
+        var c = Tuple.Create(e3.vertex.index, e3.next.vertex.index);
+
+        var aopp = Tuple.Create(e1.next.vertex.index, e1.vertex.index);
+        var bopp = Tuple.Create(e2.next.vertex.index, e2.vertex.index);
+        var copp = Tuple.Create(e3.next.vertex.index, e3.vertex.index);
+
+        // newEdgeDict[a] = e1;
+        // newEdgeDict[b] = e2;
+
+        // if (!newEdgeDict.ContainsKey(aopp)) newEdgeDict[a] = e1;
+        // if (!newEdgeDict.ContainsKey(bopp)) newEdgeDict[b] = e2;
+        // if (!newEdgeDict.ContainsKey(copp)) newEdgeDict[c] = e3;
     }
 
     private void AddUnaffectedTriangles(Edge edge, Edge opposite) {
@@ -203,9 +235,9 @@ public class EdgeSplit : MonoBehaviour
             if (affectedEdges.Contains(e)) continue;
 
             // Check if the edge forms a triangle
-            // if (e.next != null && e.next.next != null && e.next.next.next == e) {
+            if (e.next != null && e.next.next != null && e.next.next.next == e) {
                 AddNewTriangle(e);
-            // }
+            }
         }
     }
 
@@ -259,6 +291,7 @@ public class EdgeSplit : MonoBehaviour
         // new_edges.AddRange(new_edges_created);
         new_edges_created.Clear();
         new_vertex_edges.Clear();
+        newEdgeDict.Clear();
     }
 
     public List<int> GetTriangles() {

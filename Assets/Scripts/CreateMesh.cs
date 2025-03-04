@@ -238,13 +238,23 @@ public class CreateMesh : MonoBehaviour
         }
 
         if (showBoundaries) {
-            foreach (Edge he in halfedgeMesh.edgesDict.Values)
-            {
-                if (he.opposite == null) {
-                    // Debug.Log(he + " " + he.next + " ");
-                    // if (isDrawing) Gizmos.DrawLine(he.vertex.position, he.next.vertex.position);
-                    if (he != null && he.next != null) Handles.DrawBezier(he.vertex.position, he.next.vertex.position, he.vertex.position, he.next.vertex.position, Color.cyan, null, 10);
-                }
+            
+            // foreach (var he in current_hole_edges)
+            // {
+                
+            //     // if (he.opposite == null) {
+            //         // Debug.Log(he + " " + he.next + " ");
+            //         // if (isDrawing) Gizmos.DrawLine(he.vertex.position, he.next.vertex.position);
+            //         if (he != null && he.next != null) Handles.DrawBezier(he.vertex.position, he.next.vertex.position, he.vertex.position, he.next.vertex.position, Color.cyan, null, 5);
+            //     // }
+            //     // GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            //     // sphere.transform.position = he.vertex.position;
+            //     // sphere.transform.localScale = Vector3.one * 0.001f;
+            //     // sphere.GetComponent<Renderer>().material.color = Color.red;
+            // }
+            foreach (var kvp in newEdgeDict) {
+                var he = kvp.Value;
+                if (he != null && he.next != null) Handles.DrawBezier(he.vertex.position, he.next.vertex.position, he.vertex.position, he.next.vertex.position, Color.yellow, null, 5);
             }
         }
     }
@@ -602,11 +612,14 @@ public class CreateMesh : MonoBehaviour
             // edgeFlip = new EdgeFlip(loopSplit.GetNewEdges());
 
             // new code
-            loopSplit.NewTriangulateHole(hole, null, null);
+            List<Edge> freshNewEdges = new List<Edge>();
+            Dictionary<Tuple<int, int>, Edge> freshNewEdgeDict = new Dictionary<Tuple<int, int>, Edge>();
+
+            loopSplit.NewTriangulateHole(hole, null, null, freshNewEdges, freshNewEdgeDict);
             subMeshTriangles = new List<int>();
             List<Edge> newedges = loopSplit.GetNewEdges();
-            Debug.Log("new edges count: " + newedges.Count);
-            current_hole_edges = newedges;
+            // Debug.Log("new edges count: " + newedges.Count);
+            current_hole_edges = new List<Edge>(newedges); //newedges;
             halfedgeMesh = loopSplit.halfedgeMesh;
 
             // VisualizeEdges(current_hole_edges);
@@ -637,7 +650,62 @@ public class CreateMesh : MonoBehaviour
             meshGameObj.GetComponent<MeshFilter>().mesh = mesh;
 
             newEdgeDict = loopSplit.newEdgeDict;
+            // current_hole_edges = new List<Edge>(freshNewEdges);
+            // newEdgeDict = freshNewEdgeDict;
+
+            Debug.Log("new edge dict count:  " + newEdgeDict.Count + " " + current_hole_edges.Count);
         }
+
+
+        // Manually remove duplicate opposites (temporarily)
+        // List<Edge> temp = new List<Edge>(current_hole_edges);
+        // foreach (var edge in temp) {
+        //     var oppositeEdge = edge.opposite;
+        //     if (oppositeEdge == null) {
+        //         Debug.Log("I don't have opposite :()");
+        //     }
+        //     if (edge.vertex.index != edge.opposite.next.vertex.index || edge.opposite.vertex.index != edge.next.vertex.index) {
+        //         Debug.Log("opposites don't match");
+        //         var a = Tuple.Create(edge.vertex.index, edge.next.vertex.index);
+                // var b = Tuple.Create(edge.next.vertex.index, edge.vertex.index);
+                // newEdgeDict.Remove(a);
+                // newEdgeDict.Remove(b);
+                // current_hole_edges.Remove(edge);
+                // current_hole_edges.Remove(edge.opposite);
+
+                // var c = Tuple.Create(edge.next.vertex.index, edge.vertex.index);
+                // Debug.Log("find opposite: " + newEdgeDict.ContainsKey(c));
+
+                // Edge newEdge = new Edge(edge.next.vertex);
+                // newEdge.next = oppositeEdge.opposite;
+                // Edge prev = oppositeEdge.next.next; //FindPreviousEdge(oppositeEdge);
+                // prev.next = newEdge;
+                // newEdge.opposite = edge;
+                // edge.opposite = newEdge;
+
+                // newEdgeDict[c] = newEdge;
+                // newEdgeDict[a] = edge;
+
+        //         GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        //         sphere.transform.position = edge.vertex.position;
+        //         sphere.transform.localScale = Vector3.one * 0.001f;
+        //         sphere.GetComponent<Renderer>().material.color = Color.cyan;
+        //         GameObject sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        //         sphere2.transform.position = edge.next.vertex.position;
+        //         sphere2.transform.localScale = Vector3.one * 0.001f;
+        //         sphere2.GetComponent<Renderer>().material.color = Color.blue;
+
+        //         GameObject sphere3 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        //         sphere3.transform.position = oppositeEdge.opposite.vertex.position;
+        //         sphere3.transform.localScale = Vector3.one * 0.001f;
+        //         sphere3.GetComponent<Renderer>().material.color = Color.green; 
+        //         GameObject sphere4 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        //         sphere4.transform.position = oppositeEdge.opposite.next.vertex.position;
+        //         sphere4.transform.localScale = Vector3.one * 0.001f;
+        //         sphere4.GetComponent<Renderer>().material.color = Color.red;
+        //     }
+        // }
+        // showBoundaries = true;
     }
 
     void VisualizeEdges(List<Edge> edges) {
@@ -664,9 +732,9 @@ public class CreateMesh : MonoBehaviour
         edgeFlip.triangles = subMeshTriangles; //triangles.ToList();
         edgeFlip.halfedgeMesh = halfedgeMesh;
 
-        // bool isFlip = edgeFlip.PerformEdgeFlip();
+        bool isFlip = edgeFlip.PerformEdgeFlip();
         // edgeFlip.EdgeFlipPublic();
-        bool isFlip = edgeFlipMethod == EdgeFlipMethod.AspectRatio ? edgeFlip.PerformEdgeFlip() : edgeFlip.EdgeFlipCircumcircle();
+        // bool isFlip = edgeFlipMethod == EdgeFlipMethod.AspectRatio ? edgeFlip.PerformEdgeFlip() : edgeFlip.EdgeFlipCircumcircle();
 
         if (isFlip) {
             mesh.SetTriangles(edgeFlip.new_triangles.ToArray(), 1);
@@ -689,13 +757,12 @@ public class CreateMesh : MonoBehaviour
             // current_hole_edges.AddRange(edgeFlip.updated_edges);
 
             current_hole_edges = new List<Edge>(edgeFlip.updated_edges);
-            newEdgeDict = edgeFlip.newEdgeDict;
+            newEdgeDict = new Dictionary<Tuple<int, int>, Edge>(edgeFlip.newEdgeDict); //new Dictionary<Tuple<int, int>, Edge>(edgeFlip.newEdgeDict); //edgeFlip.newEdgeDict;
             edgeFlip.Reset();
-
-            // Debug.Log("after edge flip current edge count: " + current_hole_edges.Count + " " + subMeshTriangles.Count);
         } else {
             Debug.Log("None of the edges were flipped!");
         }
+        Debug.Log("after edge flip current edge count: " + newEdgeDict.Count + " " + current_hole_edges.Count);
     }
 
     void PerformEdgeSplit() {
@@ -726,12 +793,14 @@ public class CreateMesh : MonoBehaviour
         // Reset and update global variables
         
         current_hole_edges = new List<Edge>(edgeSplit.new_edges_created); //edgeSplit.new_edges;
-        newEdgeDict = edgeSplit.newEdgeDict;
+        newEdgeDict = new Dictionary<Tuple<int, int>, Edge>(edgeSplit.newEdgeDict);
         // Debug.Log("after edge split: " + current_hole_edges.Count + " " + subMeshTriangles.Count +  " " + edgeSplit.new_triangles.Count);
 
         isEdgeSplit = true;
         smoothing_edges.AddRange(edgeSplit.new_vertex_edges);
         edgeSplit.Reset();
+
+        Debug.Log("after edge split counts: " + newEdgeDict.Count + " " + current_hole_edges.Count);
     }
 
     List<Edge> smoothing_edges = new List<Edge>();
@@ -771,7 +840,9 @@ public class CreateMesh : MonoBehaviour
 
     bool showBoundaries = false;
     void CreateHole() {
-        Ray inputRay = Camera.main.ScreenPointToRay(Input.mousePosition);
+        // Debug.Log("mouse pos: " + Input.mousePosition);
+        Vector3 fixedPos = new Vector3(475f, 334f, 0f);
+        Ray inputRay = Camera.main.ScreenPointToRay(fixedPos); //Input.mousePosition);
         RaycastHit hit;
 
 		if (Physics.Raycast(inputRay, out hit, Mathf.Infinity)) {
