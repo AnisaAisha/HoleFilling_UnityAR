@@ -157,10 +157,10 @@ MonoBehaviour:
   minHoleEdges: 2
   minNeighborDistance: 0.1
   triangleCreationRadius: 0.0005
-  edgeFlipIters: 2
   smoothingFactor: 0.1
   splitLengthFactor: 0.8
   holeFillingMethod: 0
+  edgeFlipMethod: 0
   threshold: 0.04
 --- !u!4 &1098009759
 Transform:
@@ -373,8 +373,8 @@ MonoBehaviour:
   minHoleEdges: 2
   minNeighborDistance: 0.001
   triangleCreationRadius: 0.005
-  edgeFlipIters: 2
   smoothingFactor: 0.1
   splitLengthFactor: 0.8
   holeFillingMethod: 1
+  edgeFlipMethod: 0
   threshold: 0.01

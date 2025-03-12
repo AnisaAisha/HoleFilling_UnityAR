@@ -725,6 +725,7 @@ public class CreateMesh : MonoBehaviour
     }
 
      void PerformEdgeFlip() {
+        Debug.Log("before flip triangles: " + subMeshTriangles.Count);
         // edgeFlip = new EdgeFlip(loopSplit.GetNewEdges(), edgeFlipIters);
         // Debug.Log("before edge flip current edge count: " + current_hole_edges.Count + " " + subMeshTriangles.Count);
         edgeFlip.new_edges = current_hole_edges;
@@ -732,11 +733,12 @@ public class CreateMesh : MonoBehaviour
         edgeFlip.triangles = subMeshTriangles; //triangles.ToList();
         edgeFlip.halfedgeMesh = halfedgeMesh;
 
-        bool isFlip = edgeFlip.PerformEdgeFlip();
+        // bool isFlip = edgeFlip.PerformEdgeFlip();
         // edgeFlip.EdgeFlipPublic();
-        // bool isFlip = edgeFlipMethod == EdgeFlipMethod.AspectRatio ? edgeFlip.PerformEdgeFlip() : edgeFlip.EdgeFlipCircumcircle();
+        bool isFlip = edgeFlipMethod == EdgeFlipMethod.AspectRatio ? edgeFlip.PerformEdgeFlip() : edgeFlip.EdgeFlipCircumcircle();
 
         if (isFlip) {
+            Debug.Log("after flip triangles: " + edgeFlip.new_triangles.Count);
             mesh.SetTriangles(edgeFlip.new_triangles.ToArray(), 1);
             subMeshTriangles = new List<int>(edgeFlip.new_triangles);
 
@@ -758,15 +760,31 @@ public class CreateMesh : MonoBehaviour
 
             current_hole_edges = new List<Edge>(edgeFlip.updated_edges);
             newEdgeDict = new Dictionary<Tuple<int, int>, Edge>(edgeFlip.newEdgeDict); //new Dictionary<Tuple<int, int>, Edge>(edgeFlip.newEdgeDict); //edgeFlip.newEdgeDict;
+            // newEdgeDict = new Dictionary<Tuple<int, int>, Edge>(edgeFlip.anothernewEdgeDict);
             edgeFlip.Reset();
         } else {
             Debug.Log("None of the edges were flipped!");
         }
         Debug.Log("after edge flip current edge count: " + newEdgeDict.Count + " " + current_hole_edges.Count);
+
+        // foreach(var edge in current_hole_edges) {
+        //     GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        //     sphere.transform.position = edge.vertex.position;
+        //     sphere.transform.localScale = Vector3.one * 0.001f;
+        //     sphere.GetComponent<Renderer>().material.color = Color.blue;
+        //     GameObject sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        //     sphere2.transform.position = edge.next.vertex.position;
+        //     sphere2.transform.localScale = Vector3.one * 0.001f;
+        //     sphere2.GetComponent<Renderer>().material.color = Color.blue;
+        //     GameObject sphere3 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        //     sphere3.transform.position = edge.next.next.vertex.position;
+        //     sphere3.transform.localScale = Vector3.one * 0.001f;
+        //     sphere3.GetComponent<Renderer>().material.color = Color.blue; 
+        // }
     }
 
     void PerformEdgeSplit() {
-        // Debug.Log("before edge split: " + current_hole_edges.Count + " " + subMeshTriangles.Count + " " + edgeSplit.new_triangles.Count);
+        Debug.Log("before edge split: " + current_hole_edges.Count + " " + newEdgeDict.Count + " " + mesh.GetTriangles(1).Length); //+ " " + subMeshTriangles.Count + " " + edgeSplit.new_triangles.Count);
         edgeSplit.new_edges = current_hole_edges;
         edgeSplit.vertices = mesh.vertices.ToList();
         edgeSplit.halfedgeMesh = halfedgeMesh;
@@ -776,6 +794,7 @@ public class CreateMesh : MonoBehaviour
         edgeSplit.CreateEdgeSplit();
 
         // setting new splitted triangles with updated vertices
+        Debug.Log("after split triangles: " + edgeSplit.new_triangles.Count);
         mesh.vertices = edgeSplit.vertices.ToArray();
         mesh.SetTriangles(edgeSplit.new_triangles.ToArray(), 1);
         subMeshTriangles = new List<int>(edgeSplit.new_triangles);
@@ -840,8 +859,9 @@ public class CreateMesh : MonoBehaviour
 
     bool showBoundaries = false;
     void CreateHole() {
-        // Debug.Log("mouse pos: " + Input.mousePosition);
-        Vector3 fixedPos = new Vector3(475f, 334f, 0f);
+        Debug.Log("mouse pos: " + Input.mousePosition);
+        Vector3 fixedPos = Input.mousePosition; 
+        // Vector3 fixedPos = new Vector3(440f, 308f, 0f);
         Ray inputRay = Camera.main.ScreenPointToRay(fixedPos); //Input.mousePosition);
         RaycastHit hit;
 

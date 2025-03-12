@@ -81,6 +81,7 @@ public class EdgeSplit : MonoBehaviour
         }
 
         EdgeSplitWithNewVertex(edgeToSplit);
+        // EdgeSplit2(edgeToSplit);
 
         // foreach (var edge in new_edges) {
         //     if (!visited_edges.Contains(edge)) {
@@ -115,12 +116,7 @@ public class EdgeSplit : MonoBehaviour
     }
 
     public void EdgeSplitWithNewVertex(Edge edge) {
-        Edge oppositeEdge = edge.opposite;   
-
-        // new_edges.Remove(edge);
-        // new_edges.Remove(oppositeEdge);
-        // newEdgeDict.Remove(Tuple.Create(edge.vertex.index, edge.next.vertex.index));
-        // newEdgeDict.Remove(Tuple.Create(oppositeEdge.vertex.index, oppositeEdge.next.vertex.index));     
+        Edge oppositeEdge = edge.opposite;    
 
         // Debug code to visualize which edge is getting split
         // GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -186,6 +182,17 @@ public class EdgeSplit : MonoBehaviour
         newEdgeDict[b] = e3;
         var c = Tuple.Create(e2.vertex.index, e2.next.vertex.index);
         newEdgeDict[c] = e2;
+
+        // newEdgeDict[Tuple.Create(edge.vertex.index, edge.next.vertex.index)] = edge;
+        // newEdgeDict[Tuple.Create(oppositeEdge.vertex.index, oppositeEdge.next.vertex.index)] = oppositeEdge;
+
+        // newEdgeDict[Tuple.Create(e1.vertex.index, e1.next.vertex.index)] = e1;
+        // newEdgeDict[Tuple.Create(e2.vertex.index, e2.next.vertex.index)] = e2;
+        // newEdgeDict[Tuple.Create(e2opp.vertex.index, e2opp.next.vertex.index)] = e2opp;
+        // newEdgeDict[Tuple.Create(og_opp.vertex.index, og_opp.next.vertex.index)] = og_opp;
+        // newEdgeDict[Tuple.Create(e3.vertex.index, e3.next.vertex.index)] = e3;
+        // newEdgeDict[Tuple.Create(e3opp.vertex.index, e3opp.next.vertex.index)] = e3opp;
+
     }
 
     private void AddNewTriangle(Edge edge) {
@@ -202,19 +209,15 @@ public class EdgeSplit : MonoBehaviour
         new_triangles.Add(e2.vertex.index);
         new_triangles.Add(e3.vertex.index);
 
-        // new_triangles.Add(edge.vertex.index);
-        // new_triangles.Add(edge.next.vertex.index);
-        // new_triangles.Add(edge.next.next.vertex.index);
-
-        new_edges_created.Add(edge);
+        new_edges_created.Add(e1);
         
-        var a = Tuple.Create(e1.vertex.index, e1.next.vertex.index);
-        var b = Tuple.Create(e2.vertex.index, e2.next.vertex.index);
-        var c = Tuple.Create(e3.vertex.index, e3.next.vertex.index);
+        // var a = Tuple.Create(e1.vertex.index, e1.next.vertex.index);
+        // var b = Tuple.Create(e2.vertex.index, e2.next.vertex.index);
+        // var c = Tuple.Create(e3.vertex.index, e3.next.vertex.index);
 
-        var aopp = Tuple.Create(e1.next.vertex.index, e1.vertex.index);
-        var bopp = Tuple.Create(e2.next.vertex.index, e2.vertex.index);
-        var copp = Tuple.Create(e3.next.vertex.index, e3.vertex.index);
+        // var aopp = Tuple.Create(e1.next.vertex.index, e1.vertex.index);
+        // var bopp = Tuple.Create(e2.next.vertex.index, e2.vertex.index);
+        // var copp = Tuple.Create(e3.next.vertex.index, e3.vertex.index);
 
         // newEdgeDict[a] = e1;
         // newEdgeDict[b] = e2;
