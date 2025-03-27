@@ -10,6 +10,7 @@ public class HalfedgeMesh //: MonoBehaviour
     // public List<Vertex> vertices;
     public Vertex[] vertices;
     public List<Face> faces;
+    public List<Face> patch_faces;
     public Dictionary<Tuple<int, int>, Edge> edgesDict = new Dictionary<Tuple<int, int>, Edge>();
 
     // HalfedgeMesh(Edge[] edges, Vertex[] vertices, Face[] faces) {
@@ -25,6 +26,7 @@ public class HalfedgeMesh //: MonoBehaviour
         this.vertices = vertices_list;
         halfEdges = new List<Edge>();
         faces = new List<Face>();
+        patch_faces = new List<Face>();
 
         Debug.Log("Triangles, vertices: " + meshTriangles.Length + " " + vertices_list.Length);
 
@@ -47,6 +49,7 @@ public class HalfedgeMesh //: MonoBehaviour
 
             // Create face
             Face f = new Face(he1); // new Face(he1, he2, he3, i)
+            f.face_idx = i;
             faces.Add(f);
 
             // Link half-edges to the face

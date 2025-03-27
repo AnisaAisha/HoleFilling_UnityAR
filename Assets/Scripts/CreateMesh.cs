@@ -32,11 +32,14 @@ public class CreateMesh : MonoBehaviour
     List<Edge> current_hole_edges = new List<Edge>();
     bool isEdgeSplit = false;
     Dictionary<Tuple<int, int>, Edge> newEdgeDict;
+    bool isTriangleHighlight = false;
 
 
     // Public variables
     public TextAsset pointCloudFile;
     public Material mat;
+    public Material baseMat;
+    public Material wireframeMat;
     public int minHoleEdges = 2;
     public float minNeighborDistance = 0.1f;
     public float triangleCreationRadius = 0.0005f;
@@ -64,11 +67,6 @@ public class CreateMesh : MonoBehaviour
     {
         halfedgeMesh = new HalfedgeMesh();
 
-        // Mesh modification operations
-        loopSplit = new LoopSplitting(minNeighborDistance);
-        edgeSplit = new EdgeSplit(splitLengthFactor);
-        smoothMesh = new SmoothMesh(smoothingFactor);
-        edgeFlip = new EdgeFlip();
         GetPoints();
         CreateMeshFromPoints();
         IdentifyHoles();
@@ -76,6 +74,14 @@ public class CreateMesh : MonoBehaviour
         Renderer rend = meshGameObj.GetComponent<Renderer>();
         Vector3 meshCenter = rend.bounds.center; 
         Camera.main.transform.LookAt(meshCenter);
+
+        // Mesh modification operations
+        loopSplit = new LoopSplitting(minNeighborDistance);
+        loopSplit.SetVerticesAndTriangles(vertices, triangles);
+        loopSplit.halfedgeMesh = halfedgeMesh; 
+        edgeSplit = new EdgeSplit(splitLengthFactor);
+        smoothMesh = new SmoothMesh(smoothingFactor);
+        edgeFlip = new EdgeFlip();
     }
 
     void GetPoints() {
@@ -95,12 +101,138 @@ public class CreateMesh : MonoBehaviour
         }
     }
 
+//     void CreateMeshFromPoints() {
+//         triangles = new List<int>();
+//         Debug.Log("depth, height: " + depthImgWidth + " " + depthImgHeight);
+
+//         // Image is not rotated, so width and height reversed here temporarily (192x256)
+//         int rows = depthImgHeight;
+//         int cols = depthImgWidth;
+
+//         Vertex[] v_list = new Vertex[vertices.Count];
+//         // Vector3[] barycentricCoords = new Vector3[vertices.Count];
+//         uvs = new Vector2[vertices.Count];
+//         colors = new Color[vertices.Count];
+
+//         for (int x = 0; x < rows; x++) {
+//             for (int y = 0; y < cols; y++) {
+//                 int i = x * rows + y;
+
+//                 v_list[i] = new Vertex(vertices[i], i);
+//                 float u = x / (float)(rows);
+//                 float v = y / (float)(cols);
+//                 uvs[i] = new Vector2(u, v);
+//                 colors[i] = new Color (0.4f, 0.8f, 0.4f, 1.0f);
+
+//                 // only add triangle if dist < threshold
+//                 if (isValidTriangle(i + cols, i + cols + 1, i + 1)) {
+//                     triangles.Add(i + 1);
+//                     triangles.Add(i + cols + 1);
+//                     triangles.Add(i + cols);
+
+//                     // Create Vertex and add to list
+//                     v_list[i + 1] = new Vertex(vertices[i + 1], i + 1);
+//                     v_list[i + cols + 1] = new Vertex(vertices[i + cols + 1], i + cols + 1);
+//                     v_list[i + cols] = new Vertex(vertices[i + cols], i + cols);
+
+//                     AddEdge(edgeSet, wireframeLines, i + 1, i + cols + 1);
+//                     AddEdge(edgeSet, wireframeLines, i + cols + 1, i + cols);
+//                     AddEdge(edgeSet, wireframeLines, i + cols, i + 1);
+//                 }
+
+//                 if (isValidTriangle(i + cols, i + 1, i)) {
+//                     triangles.Add(i);
+//                     triangles.Add(i + 1);
+//                     triangles.Add(i + cols);
+//                     v_list[i] = new Vertex(vertices[i], i);
+//                     v_list[i + 1] = new Vertex(vertices[i + 1], i + 1);
+//                     v_list[i + cols] = new Vertex(vertices[i + cols], i + cols);
+
+//                     AddEdge(edgeSet, wireframeLines, i, i + 1);
+//                     AddEdge(edgeSet, wireframeLines, i + 1, i + cols);
+//                     AddEdge(edgeSet, wireframeLines, i + cols, i);
+//                 }
+//             }
+//         }
+//         halfedgeMesh.BuildHalfEdgeMesh(v_list, triangles.ToArray());       
+
+//         // Create mesh
+//         // mesh = new Mesh();
+//         // mesh.vertices = vertices.ToArray();
+//         // mesh.triangles = triangles.ToArray();
+//         // mesh.uv = uvs;
+//         // // mesh.SetUVs(1, barycentricCoords);
+//         // mesh.RecalculateNormals();
+
+//         // GameObject s = new GameObject("Object");
+//         // s.AddComponent<MeshFilter>();
+//         // s.AddComponent<MeshRenderer>();
+//         // s.GetComponent<MeshFilter>().mesh = mesh;
+//         // s.AddComponent<MeshCollider>();
+//         // Renderer rend = s.GetComponent<Renderer>();
+//         // // rend.material.color = new Color (0.4f, 0.8f, 0.4f, 1.0f);
+
+//         // // Material mat = new Material(Shader.Find("Standard"));
+//         // Material mat = new Material(Shader.Find("Custom/FlatShadingNoInterpolation"));
+//         // // //Custom/VertexColor"));
+//         // texture = CreateTexture(rows, cols, colors);
+// 		// mat.SetTexture("_MainTex", texture);
+// 		// rend.material = mat;
+
+//         // meshGameObj = s;
+
+//         mesh = new Mesh();
+//         mesh.subMeshCount = 2; // Create 2 submeshes
+
+//         mesh.vertices = vertices.ToArray();
+//         mesh.SetTriangles(triangles, 0); // Submesh 0 → Normal mesh
+//         mesh.SetIndices(wireframeLines.ToArray(), MeshTopology.Lines, 1); // Submesh 1 → Wireframe
+
+//         mesh.uv = uvs;
+//         mesh.RecalculateNormals();
+
+//         GameObject s = new GameObject("Object");
+//         s.AddComponent<MeshFilter>();
+//         s.AddComponent<MeshRenderer>();
+//         s.GetComponent<MeshFilter>().mesh = mesh;
+//         s.AddComponent<MeshCollider>();
+
+//         Renderer rend = s.GetComponent<Renderer>();
+
+//         // Create and assign materials
+//         Material baseMat = new Material(Shader.Find("Custom/FlatShadingNoInterpolation"));
+//         Material wireframeMat = new Material(Shader.Find("Unlit/Color")); // Simple wireframe material
+//         wireframeMat.color = Color.black;
+
+//         texture = CreateTexture(rows, cols, colors);
+//         baseMat.SetTexture("_MainTex", texture);
+
+//         rend.materials = new Material[] { baseMat, wireframeMat };
+
+//         meshGameObj = s;
+
+
+//         Debug.Log("checking in main counts: " + vertices.Count + " " + triangles.Count);
+
+//         // ExportMeshToPLY("scannedMesh.ply");
+//     }
+//         List<int> wireframeLines = new List<int>(); // Store edges for wireframe
+//     HashSet<(int, int)> edgeSet = new HashSet<(int, int)>(); // To avoid duplicate edges
+
+//     void AddEdge(HashSet<(int, int)> edgeSet, List<int> wireframeLines, int a, int b) {
+//     var edge = a < b ? (a, b) : (b, a);
+//     if (!edgeSet.Contains(edge)) {
+//         edgeSet.Add(edge);
+//         wireframeLines.Add(a);
+//         wireframeLines.Add(b);
+//     }
+// }
+
     void CreateMeshFromPoints() {
         triangles = new List<int>();
 
         Debug.Log("depth, height: " + depthImgWidth + " " + depthImgHeight);
 
-        // Image is not rotated, so width and height reversed here temporarily (192x256)
         int rows = depthImgHeight;
         int cols = depthImgWidth;
 
@@ -116,15 +248,13 @@ public class CreateMesh : MonoBehaviour
                 float u = x / (float)(rows);
                 float v = y / (float)(cols);
                 uvs[i] = new Vector2(u, v);
-                colors[i] = new Color (0.4f, 0.8f, 0.4f, 1.0f);
+                colors[i] = new Color(0.4f, 0.8f, 0.4f, 1.0f);
 
-                // only add triangle if dist < threshold
                 if (isValidTriangle(i + cols, i + cols + 1, i + 1)) {
                     triangles.Add(i + 1);
                     triangles.Add(i + cols + 1);
                     triangles.Add(i + cols);
 
-                    // Create Vertex and add to list
                     v_list[i + 1] = new Vertex(vertices[i + 1], i + 1);
                     v_list[i + cols + 1] = new Vertex(vertices[i + cols + 1], i + cols + 1);
                     v_list[i + cols] = new Vertex(vertices[i + cols], i + cols);
@@ -134,40 +264,75 @@ public class CreateMesh : MonoBehaviour
                     triangles.Add(i);
                     triangles.Add(i + 1);
                     triangles.Add(i + cols);
+
                     v_list[i] = new Vertex(vertices[i], i);
                     v_list[i + 1] = new Vertex(vertices[i + 1], i + 1);
                     v_list[i + cols] = new Vertex(vertices[i + cols], i + cols);
                 }
             }
         }
+
         halfedgeMesh.BuildHalfEdgeMesh(v_list, triangles.ToArray());
-        loopSplit.SetVerticesAndTriangles(vertices, triangles);
-        loopSplit.halfedgeMesh = halfedgeMesh;        
 
         // Create mesh
         mesh = new Mesh();
+        mesh.Clear(false);
         mesh.vertices = vertices.ToArray();
-        mesh.triangles = triangles.ToArray();
+        // mesh.subMeshCount = 2; // Two submeshes
+
+        // Submesh 0: Main mesh
         mesh.uv = uvs;
+        mesh.SetTriangles(triangles, 0);
         mesh.RecalculateNormals();
+
+        // Submesh 1: Wireframe
+        int[] wires = new int[triangles.Count * 2]; // 6 indices per triangle (each edge used twice)
+        for (int iTria = 0; iTria < triangles.Count / 3; iTria++) {
+            for (int iVertex = 0; iVertex < 3; iVertex++) {
+                wires[6 * iTria + 2 * iVertex] = triangles[3 * iTria + iVertex];
+                wires[6 * iTria + 2 * iVertex + 1] = triangles[3 * iTria + (iVertex + 1) % 3];
+            }
+        }
+        // mesh.SetIndices(wires, MeshTopology.Lines, 1);
 
         GameObject s = new GameObject("Object");
         s.AddComponent<MeshFilter>();
         s.AddComponent<MeshRenderer>();
         s.GetComponent<MeshFilter>().mesh = mesh;
-        s.AddComponent<MeshCollider>();
-        Renderer rend = s.GetComponent<Renderer>();
-        // rend.material.color = new Color (0.4f, 0.8f, 0.4f, 1.0f);
+        
+        // s.AddComponent<MeshCollider>();
+        Mesh colliderMesh = new Mesh();
+        colliderMesh.vertices = mesh.vertices;
+        colliderMesh.triangles = triangles.ToArray(); // Ensure it has valid triangles
 
-        Material mat = new Material(Shader.Find("Standard"));
+        colliderMesh.RecalculateNormals();
+        colliderMesh.RecalculateBounds();
+
+        // ✅ Add and assign MeshCollider before adding wireframe
+        MeshCollider meshCollider = s.AddComponent<MeshCollider>();
+        meshCollider.sharedMesh = colliderMesh;
+
+        mesh.subMeshCount = 2;
+        mesh.SetIndices(wires, MeshTopology.Lines, 1);
+        s.GetComponent<MeshFilter>().mesh = mesh;
+
+        Renderer rend = s.GetComponent<Renderer>();
+
+        // Create and assign materials
+        Material baseMat = new Material(Shader.Find("Standard"));
+        Material wireframeMat = new Material(Shader.Find("Unlit/Color")); // Simple wireframe material
+        wireframeMat.color = Color.black;
+
         texture = CreateTexture(rows, cols, colors);
-		mat.SetTexture("_MainTex", texture);
-		rend.material = mat;
+        baseMat.SetTexture("_MainTex", texture);
+
+        rend.materials = new Material[] { baseMat, wireframeMat };
 
         meshGameObj = s;
 
-        // ExportMeshToPLY("scannedMesh.ply");
+        Debug.Log("Main mesh counts: " + vertices.Count + " " + triangles.Count);
     }
+
 
     bool isValidTriangle(int ai, int bi, int ci) {
         Vector3 a = vertices[ai];
@@ -252,9 +417,14 @@ public class CreateMesh : MonoBehaviour
             //     // sphere.transform.localScale = Vector3.one * 0.001f;
             //     // sphere.GetComponent<Renderer>().material.color = Color.red;
             // }
-            foreach (var kvp in newEdgeDict) {
-                var he = kvp.Value;
-                if (he != null && he.next != null) Handles.DrawBezier(he.vertex.position, he.next.vertex.position, he.vertex.position, he.next.vertex.position, Color.yellow, null, 5);
+            // foreach (var kvp in newEdgeDict) {
+            //     var he = kvp.Value;
+            //     if (he != null && he.next != null) Handles.DrawBezier(he.vertex.position, he.next.vertex.position, he.vertex.position, he.next.vertex.position, Color.yellow, null, 5);
+            // }
+
+            foreach (var he in overlappingTriangles) {
+                Handles.DrawBezier(he.vertex.position, he.next.vertex.position, he.vertex.position, he.next.vertex.position, Color.magenta, null, 5);
+                Handles.DrawBezier(he.next.vertex.position, he.next.next.vertex.position, he.next.vertex.position, he.next.next.vertex.position, Color.magenta, null, 5);
             }
         }
     }
@@ -414,6 +584,8 @@ public class CreateMesh : MonoBehaviour
             mesh.triangles = triangles.ToArray();
             mesh.RecalculateNormals();
             meshGameObj.GetComponent<MeshFilter>().mesh = mesh;
+
+            Debug.Log("centroid triangle count: " + triangles.Count);
         }
     }
 
@@ -593,6 +765,7 @@ public class CreateMesh : MonoBehaviour
     }
 
     HashSet<Vertex> current_boundary_vertices = new HashSet<Vertex>();
+    List<Edge> overlappingTriangles = new List<Edge>();
     void FillHolesDecimation() {
         if (halfedgeMesh != null && current_hole_idx < holes_list.Count)
         {
@@ -612,10 +785,8 @@ public class CreateMesh : MonoBehaviour
             // edgeFlip = new EdgeFlip(loopSplit.GetNewEdges());
 
             // new code
-            List<Edge> freshNewEdges = new List<Edge>();
-            Dictionary<Tuple<int, int>, Edge> freshNewEdgeDict = new Dictionary<Tuple<int, int>, Edge>();
 
-            loopSplit.NewTriangulateHole(hole, null, null, freshNewEdges, freshNewEdgeDict);
+            loopSplit.NewTriangulateHole(hole, null, null);
             subMeshTriangles = new List<int>();
             List<Edge> newedges = loopSplit.GetNewEdges();
             // Debug.Log("new edges count: " + newedges.Count);
@@ -636,14 +807,25 @@ public class CreateMesh : MonoBehaviour
             mesh.vertices = vertices.ToArray();
             subMeshTriangles = loopSplit.GetSubmesh();
 
-            mesh.subMeshCount = 2;
-            mesh.SetTriangles(triangles.ToArray(), 0);
+            mesh.subMeshCount = 4;
+            // mesh.SetTriangles(triangles.ToArray(), 0);
             mesh.SetTriangles(subMeshTriangles.ToArray(), 1);
-            mesh.RecalculateNormals();
+            // mesh.RecalculateNormals();
+
+            int[] wires = GetWireframeLines(triangles.ToArray());
+            int[] submeshWires = GetWireframeLines(subMeshTriangles.ToArray());
+
+            mesh.SetTriangles(triangles.ToArray(), 2);
+            mesh.SetTriangles(subMeshTriangles.ToArray(), 3);
+            mesh.SetIndices(wires, MeshTopology.Lines, 2); // Wireframe submesh
+            mesh.SetIndices(submeshWires, MeshTopology.Lines, 3);
+
             MeshRenderer renderer = meshGameObj.GetComponent<MeshRenderer>();
             Material[] materials = new Material[] {
                 meshGameObj.GetComponent<Renderer>().material,
-                mat
+                mat,
+                wireframeMat,
+                wireframeMat
             };            
             renderer.materials = materials;
             
@@ -653,59 +835,56 @@ public class CreateMesh : MonoBehaviour
             // current_hole_edges = new List<Edge>(freshNewEdges);
             // newEdgeDict = freshNewEdgeDict;
 
-            Debug.Log("new edge dict count:  " + newEdgeDict.Count + " " + current_hole_edges.Count);
+            // Debug.Log("new edge dict count:  " + newEdgeDict.Count + " " + current_hole_edges.Count);
+            
+            // Highlighting skinnier triangles
+            foreach (var kvp in newEdgeDict) {
+                var e = kvp.Value;
+                float aspRatio = CalculateAspectRatio(e.vertex.position, e.next.vertex.position, e.next.next.vertex.position);
+
+                Debug.Log("checking aspect ratios..." + aspRatio);
+
+                if (aspRatio >90f) {
+                    showBoundaries = true;
+                    overlappingTriangles.Add(e);
+                    GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    sphere.transform.position = e.vertex.position;
+                    sphere.transform.localScale = Vector3.one * 0.0005f;
+                    sphere.GetComponent<Renderer>().material.color = Color.red;
+                    GameObject sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    sphere2.transform.position = e.next.vertex.position;
+                    sphere2.transform.localScale = Vector3.one * 0.0005f;
+                    sphere2.GetComponent<Renderer>().material.color = Color.green;
+                    GameObject sphere3 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    sphere3.transform.position = e.next.next.vertex.position;
+                    sphere3.transform.localScale = Vector3.one * 0.0005f;
+                    sphere3.GetComponent<Renderer>().material.color = Color.blue;
+                }
+            }
         }
+    }
 
+    float CalculateAspectRatio(Vector3 A, Vector3 B, Vector3 C) {
+        float distA = Vector3.Distance(A, B);
+        float distB = Vector3.Distance(B, C);
+        float distC = Vector3.Distance(C, A);
 
-        // Manually remove duplicate opposites (temporarily)
-        // List<Edge> temp = new List<Edge>(current_hole_edges);
-        // foreach (var edge in temp) {
-        //     var oppositeEdge = edge.opposite;
-        //     if (oppositeEdge == null) {
-        //         Debug.Log("I don't have opposite :()");
-        //     }
-        //     if (edge.vertex.index != edge.opposite.next.vertex.index || edge.opposite.vertex.index != edge.next.vertex.index) {
-        //         Debug.Log("opposites don't match");
-        //         var a = Tuple.Create(edge.vertex.index, edge.next.vertex.index);
-                // var b = Tuple.Create(edge.next.vertex.index, edge.vertex.index);
-                // newEdgeDict.Remove(a);
-                // newEdgeDict.Remove(b);
-                // current_hole_edges.Remove(edge);
-                // current_hole_edges.Remove(edge.opposite);
+        float s = ( distA + distB + distC ) / 2f;
+        float ar = (distA * distB * distC) / (8f * (s - distA) * (s - distB) * (s - distC));
+        float k = (8f * (s - distA) * (s - distB) * (s - distC));
+        if (k == 0) return 0;
+        return ar;
+    }
 
-                // var c = Tuple.Create(edge.next.vertex.index, edge.vertex.index);
-                // Debug.Log("find opposite: " + newEdgeDict.ContainsKey(c));
-
-                // Edge newEdge = new Edge(edge.next.vertex);
-                // newEdge.next = oppositeEdge.opposite;
-                // Edge prev = oppositeEdge.next.next; //FindPreviousEdge(oppositeEdge);
-                // prev.next = newEdge;
-                // newEdge.opposite = edge;
-                // edge.opposite = newEdge;
-
-                // newEdgeDict[c] = newEdge;
-                // newEdgeDict[a] = edge;
-
-        //         GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        //         sphere.transform.position = edge.vertex.position;
-        //         sphere.transform.localScale = Vector3.one * 0.001f;
-        //         sphere.GetComponent<Renderer>().material.color = Color.cyan;
-        //         GameObject sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        //         sphere2.transform.position = edge.next.vertex.position;
-        //         sphere2.transform.localScale = Vector3.one * 0.001f;
-        //         sphere2.GetComponent<Renderer>().material.color = Color.blue;
-
-        //         GameObject sphere3 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        //         sphere3.transform.position = oppositeEdge.opposite.vertex.position;
-        //         sphere3.transform.localScale = Vector3.one * 0.001f;
-        //         sphere3.GetComponent<Renderer>().material.color = Color.green; 
-        //         GameObject sphere4 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        //         sphere4.transform.position = oppositeEdge.opposite.next.vertex.position;
-        //         sphere4.transform.localScale = Vector3.one * 0.001f;
-        //         sphere4.GetComponent<Renderer>().material.color = Color.red;
-        //     }
-        // }
-        // showBoundaries = true;
+    int[] GetWireframeLines(int[] wireTriangles) {
+        int[] wires = new int[wireTriangles.Length * 2];
+        for (int iTria = 0; iTria < wireTriangles.Length / 3; iTria++) {
+            for (int iVertex = 0; iVertex < 3; iVertex++) {
+                wires[6 * iTria + 2 * iVertex] = wireTriangles[3 * iTria + iVertex];
+                wires[6 * iTria + 2 * iVertex + 1] = wireTriangles[3 * iTria + (iVertex + 1) % 3];
+            }
+        }
+        return wires;
     }
 
     void VisualizeEdges(List<Edge> edges) {
@@ -739,16 +918,44 @@ public class CreateMesh : MonoBehaviour
 
         if (isFlip) {
             Debug.Log("after flip triangles: " + edgeFlip.new_triangles.Count);
-            mesh.SetTriangles(edgeFlip.new_triangles.ToArray(), 1);
-            subMeshTriangles = new List<int>(edgeFlip.new_triangles);
 
-            mesh.RecalculateBounds();
+            // Update Mesh
+            // mesh.SetTriangles(edgeFlip.new_triangles.ToArray(), 1);
+            // subMeshTriangles = new List<int>(edgeFlip.new_triangles);
+            // mesh.RecalculateBounds();
+            // mesh.RecalculateNormals();
+            // MeshRenderer renderer = meshGameObj.GetComponent<MeshRenderer>();
+            // Material tempMat = meshGameObj.GetComponent<Renderer>().material;
+            // Material[] materials = new Material[] {
+            //     tempMat,
+            //     mat
+            // };            
+            // renderer.materials = materials;
+            // meshGameObj.GetComponent<MeshFilter>().mesh = mesh;
+            
+            // triangles = edgeFlip.new_triangles;
+            subMeshTriangles = new List<int>(edgeFlip.new_triangles);
+            mesh.Clear();
+            mesh.vertices = vertices.ToArray();
+            mesh.subMeshCount = 4;
+            mesh.SetTriangles(triangles.ToArray(), 0);
+            mesh.SetTriangles(subMeshTriangles.ToArray(), 1);
             mesh.RecalculateNormals();
+
+            int[] wires = GetWireframeLines(triangles.ToArray());
+            int[] submeshWires = GetWireframeLines(subMeshTriangles.ToArray());
+
+            mesh.SetTriangles(triangles.ToArray(), 2);
+            mesh.SetTriangles(subMeshTriangles.ToArray(), 3);
+            mesh.SetIndices(wires, MeshTopology.Lines, 2); // Wireframe submesh
+            mesh.SetIndices(submeshWires, MeshTopology.Lines, 3);
+
             MeshRenderer renderer = meshGameObj.GetComponent<MeshRenderer>();
-            Material tempMat = meshGameObj.GetComponent<Renderer>().material;
             Material[] materials = new Material[] {
-                tempMat,
-                mat
+                baseMat,
+                mat,
+                wireframeMat,
+                wireframeMat
             };            
             renderer.materials = materials;
             
@@ -766,21 +973,6 @@ public class CreateMesh : MonoBehaviour
             Debug.Log("None of the edges were flipped!");
         }
         Debug.Log("after edge flip current edge count: " + newEdgeDict.Count + " " + current_hole_edges.Count);
-
-        // foreach(var edge in current_hole_edges) {
-        //     GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        //     sphere.transform.position = edge.vertex.position;
-        //     sphere.transform.localScale = Vector3.one * 0.001f;
-        //     sphere.GetComponent<Renderer>().material.color = Color.blue;
-        //     GameObject sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        //     sphere2.transform.position = edge.next.vertex.position;
-        //     sphere2.transform.localScale = Vector3.one * 0.001f;
-        //     sphere2.GetComponent<Renderer>().material.color = Color.blue;
-        //     GameObject sphere3 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        //     sphere3.transform.position = edge.next.next.vertex.position;
-        //     sphere3.transform.localScale = Vector3.one * 0.001f;
-        //     sphere3.GetComponent<Renderer>().material.color = Color.blue; 
-        // }
     }
 
     void PerformEdgeSplit() {
@@ -795,18 +987,46 @@ public class CreateMesh : MonoBehaviour
 
         // setting new splitted triangles with updated vertices
         Debug.Log("after split triangles: " + edgeSplit.new_triangles.Count);
-        mesh.vertices = edgeSplit.vertices.ToArray();
-        mesh.SetTriangles(edgeSplit.new_triangles.ToArray(), 1);
-        subMeshTriangles = new List<int>(edgeSplit.new_triangles);
 
         // Update the mesh
+        // mesh.vertices = edgeSplit.vertices.ToArray();
+        // mesh.SetTriangles(edgeSplit.new_triangles.ToArray(), 1);
+        // subMeshTriangles = new List<int>(edgeSplit.new_triangles);
+        // mesh.RecalculateNormals();
+        // MeshRenderer renderer = meshGameObj.GetComponent<MeshRenderer>();
+        // Material[] materials = new Material[] {
+        //     meshGameObj.GetComponent<Renderer>().material,
+        //     mat
+        // };            
+        // renderer.materials = materials;
+        // meshGameObj.GetComponent<MeshFilter>().mesh = mesh;
+
+        mesh.Clear();
+        mesh.vertices = edgeSplit.vertices.ToArray();
+        vertices = edgeSplit.vertices;
+        mesh.subMeshCount = 4;
+        mesh.SetTriangles(triangles.ToArray(), 0);
+        mesh.SetTriangles(edgeSplit.new_triangles.ToArray(), 1);
         mesh.RecalculateNormals();
+        subMeshTriangles = new List<int>(edgeSplit.new_triangles);
+
+        int[] wires = GetWireframeLines(triangles.ToArray());
+        int[] submeshWires = GetWireframeLines(subMeshTriangles.ToArray());
+
+        mesh.SetTriangles(triangles.ToArray(), 2);
+        mesh.SetTriangles(subMeshTriangles.ToArray(), 3);
+        mesh.SetIndices(wires, MeshTopology.Lines, 2); // Wireframe submesh
+        mesh.SetIndices(submeshWires, MeshTopology.Lines, 3);
+
         MeshRenderer renderer = meshGameObj.GetComponent<MeshRenderer>();
         Material[] materials = new Material[] {
-            meshGameObj.GetComponent<Renderer>().material,
-            mat
+            baseMat,
+            mat,
+            wireframeMat,
+            wireframeMat
         };            
         renderer.materials = materials;
+        
         meshGameObj.GetComponent<MeshFilter>().mesh = mesh;
 
         // Reset and update global variables
@@ -833,22 +1053,42 @@ public class CreateMesh : MonoBehaviour
             smoothMesh.LaplacianSmoothing();
 
             // Update the Mesh
-            
-            mesh.vertices = smoothMesh.vertices.ToArray();
-            // mesh.SetTriangles(edgeSplit.new_triangles.ToArray(), 1);
-            // subMeshTriangles = FixTriangleWindingOrder(mesh.vertices.ToList(), subMeshTriangles);
-            // List<int> tris = FixTriangleWindingOrder(mesh.vertices.ToList(), mesh.triangles.ToList());
-            // mesh.SetTriangles(tris, 0);
-            // mesh.SetTriangles(subMeshTriangles, 1);
+            // mesh.vertices = smoothMesh.vertices.ToArray();
+            // mesh.RecalculateNormals();
+            // mesh.RecalculateBounds();
+            // MeshRenderer renderer = meshGameObj.GetComponent<MeshRenderer>();
+            // Material[] materials = new Material[] {
+            //     meshGameObj.GetComponent<Renderer>().material,
+            //     mat
+            // };            
+            // renderer.materials = materials;
+            // meshGameObj.GetComponent<MeshFilter>().mesh = mesh;
 
+            mesh.Clear();
+            mesh.vertices = smoothMesh.vertices.ToArray();
+            vertices = edgeSplit.vertices;
+            mesh.subMeshCount = 4;
+            mesh.SetTriangles(triangles.ToArray(), 0);
+            mesh.SetTriangles(subMeshTriangles.ToArray(), 1);
             mesh.RecalculateNormals();
-            mesh.RecalculateBounds();
+
+            int[] wires = GetWireframeLines(triangles.ToArray());
+            int[] submeshWires = GetWireframeLines(subMeshTriangles.ToArray());
+
+            mesh.SetTriangles(triangles.ToArray(), 2);
+            mesh.SetTriangles(subMeshTriangles.ToArray(), 3);
+            mesh.SetIndices(wires, MeshTopology.Lines, 2); // Wireframe submesh
+            mesh.SetIndices(submeshWires, MeshTopology.Lines, 3);
+
             MeshRenderer renderer = meshGameObj.GetComponent<MeshRenderer>();
             Material[] materials = new Material[] {
-                meshGameObj.GetComponent<Renderer>().material,
-                mat
+                baseMat,
+                mat,
+                wireframeMat,
+                wireframeMat
             };            
             renderer.materials = materials;
+            
             meshGameObj.GetComponent<MeshFilter>().mesh = mesh;
 
             smoothing_edges = smoothMesh.hole_edges;
@@ -865,13 +1105,17 @@ public class CreateMesh : MonoBehaviour
         Ray inputRay = Camera.main.ScreenPointToRay(fixedPos); //Input.mousePosition);
         RaycastHit hit;
 
+        Debug.Log("raycast check: " + Physics.Raycast(inputRay, out hit, Mathf.Infinity));
+
 		if (Physics.Raycast(inputRay, out hit, Mathf.Infinity)) {
+            Debug.Log("raycast check: " + hit);
             MeshFilter meshFilter = hit.collider.GetComponent<MeshFilter>();
 
             if (meshFilter != null) {
                 int hitIdx = hit.triangleIndex;
+                Debug.Log("do we have hitidx" + hitIdx);
                 isClicked = false;
-                List<int> currTriangles = mesh.triangles.ToList();
+                List<int> currTriangles = triangles; //mesh.triangles.ToList();
                 List<int> newTriangles = new List<int>();
 
                 for (int i = 0; i < currTriangles.Count; i += 3)
@@ -898,16 +1142,30 @@ public class CreateMesh : MonoBehaviour
                 halfedgeMesh.RemoveAllEdges();
 
                 // Update the mesh with the filtered triangles
-                mesh.triangles = newTriangles.ToArray();
-                triangles = newTriangles;
+                // mesh.triangles = newTriangles.ToArray();
+                // triangles = newTriangles;
                 
-                // Recalculate bounds and normals
-                mesh.RecalculateBounds();
-                mesh.RecalculateNormals();
+                // // Recalculate bounds and normals
+                // mesh.RecalculateBounds();
+                // mesh.RecalculateNormals();
+                // halfedgeMesh.edgesToRemove.Clear();
+
+                // mesh.subMeshCount = 2; 
+                mesh.SetTriangles(newTriangles, 0); 
+                triangles = newTriangles;
+
+                int[] wires = GetWireframeLines(newTriangles.ToArray());
+                mesh.SetIndices(wires, MeshTopology.Lines, 1); // Wireframe submesh
+
+                // // ✅ Recalculate bounds and normals only for the main submesh
+                // mesh.RecalculateBounds();
+                // mesh.RecalculateNormals();
+
                 halfedgeMesh.edgesToRemove.Clear();
             }
 		}
     }
+
     private bool IsTriangleInSphere(Vector3 v1, Vector3 v2, Vector3 v3, Vector3 sphereCenter, float sphereRadius)
     {
         // Check if any vertex is inside the sphere
@@ -962,6 +1220,135 @@ public class CreateMesh : MonoBehaviour
         Camera.main.transform.LookAt(center);
     }
 
+    int GetSubmeshIndex(Mesh mesh, int triangleIndex)
+    {
+        for (int submesh = 0; submesh < mesh.subMeshCount; submesh++)
+        {
+            int[] submeshTriangles = mesh.GetTriangles(submesh);
+            int submeshTriangleCount = submeshTriangles.Length / 3;
+
+            if (triangleIndex < submeshTriangleCount)
+            {
+                return submesh;
+            }
+
+            // Move to the next batch of triangles
+            triangleIndex -= submeshTriangleCount;
+        }
+        return -1; // Should not happen if mesh data is valid
+    }
+
+    List<Edge> colored_vertices = new List<Edge>();
+    int currTriangle;
+    Edge currEdge;
+    void HighlightTriangle() {
+        Debug.Log("highlight triangle");
+
+        Ray inputRay = Camera.main.ScreenPointToRay(Input.mousePosition);
+        RaycastHit hit;
+
+        if (Physics.Raycast(inputRay, out hit, Mathf.Infinity)) {
+            MeshFilter meshFilter = hit.collider.GetComponent<MeshFilter>();
+
+            // if (meshFilter != null) {
+            //     Mesh mesh = meshFilter.mesh;
+            //     Mesh newMesh = Instantiate(mesh); // Clone the mesh
+            //     meshFilter.mesh = newMesh;
+
+            //     int[] triangles = newMesh.triangles;
+            //     Color[] colors = newMesh.colors;
+
+            //     if (colors.Length == 0) {
+            //         colors = new Color[newMesh.vertexCount]; // Ensure colors array exists
+            //         for (int i = 0; i < colors.Length; i++)
+            //             colors[i] = Color.white; // Default color
+            //     }
+
+            //     int triIndex = hit.triangleIndex * 3;
+            //     currTriangle = triIndex;
+            //     colors[triangles[triIndex]] = Color.red;
+            //     colors[triangles[triIndex + 1]] = Color.red;
+            //     colors[triangles[triIndex + 2]] = Color.red;
+
+            //     newMesh.colors = colors;
+            // }
+
+            
+            int hitTriangleIndex = hit.triangleIndex * 3;
+            // currTriangle = triangleIndex;
+            Debug.Log("triangle index: " + hit.triangleIndex + " " + subMeshTriangles.Count + " " + triangles.Count); //+ " " + triIndex);
+
+            int globalIndex = 0;
+
+            for (int submesh = 0; submesh < mesh.subMeshCount; submesh++)
+            {
+                if (submesh < 2) {
+                    int[] triangles = mesh.GetTriangles(submesh);
+
+                    int numTriangles = triangles.Length / 3; // Convert indices count to triangle count
+                    if (hitTriangleIndex >= globalIndex && hitTriangleIndex < globalIndex + numTriangles)
+                    {
+                        Debug.Log("SUBMESH FOUND YAHOO " + submesh);
+                    }
+
+                    globalIndex += numTriangles;
+                }
+            }
+            // if (triangleToSubmeshMap.TryGetValue(hit.triangleIndex, out int submeshIndex))
+            // {
+            //     Debug.Log("Triangle belongs to Submesh: " + submeshIndex);
+            // }
+            // int submeshIndex = GetSubmeshIndex(mesh, hit.triangleIndex);
+
+            // Debug.Log("Hit Submesh Index: " + submeshIndex);
+
+            // if (submeshIndex == 1)
+            // {
+            //     Debug.Log("Triangle is from submesh 1!");
+            //     // Handle logic specific to submesh 1
+            // }
+            // int i0 = subMeshTriangles[triangleIndex * 3];     // First vertex index
+            // int i1 = subMeshTriangles[triangleIndex * 3 + 1]; // Second vertex index
+            // int i2 = subMeshTriangles[triangleIndex * 3 + 2];
+
+            // Tuple<int, int> edgeKey1 = Tuple.Create(i0, i1);
+            // Tuple<int, int> edgeKey2 = Tuple.Create(i1, i2);
+            // Tuple<int, int> edgeKey3 = Tuple.Create(i2, i0);
+
+            // Edge edge1 = halfedgeMesh.edgesDict.ContainsKey(edgeKey1) ? halfedgeMesh.edgesDict[edgeKey1] : null;
+            // Edge edge2 = halfedgeMesh.edgesDict.ContainsKey(edgeKey2) ? halfedgeMesh.edgesDict[edgeKey2] : null;
+            // Edge edge3 = halfedgeMesh.edgesDict.ContainsKey(edgeKey3) ? halfedgeMesh.edgesDict[edgeKey3] : null;
+
+            // Debug.Log("checking if we found triangle...." + edge1 + " " + edge2 + " " + edge3);
+
+            foreach (var kvp in halfedgeMesh.edgesDict)
+            {
+                Edge edge = kvp.Value;
+
+                // Ensure we are checking the primary (not opposite) edge
+                if (edge.face != null && edge.face.face_idx == currTriangle)
+                {
+                    Debug.Log("did we find it???");
+                    GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    sphere.transform.position = edge.vertex.position;
+                    sphere.transform.localScale = Vector3.one * 0.001f;
+                    sphere.GetComponent<Renderer>().material.color = Color.red;
+                    GameObject sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    sphere2.transform.position = edge.next.vertex.position;
+                    sphere2.transform.localScale = Vector3.one * 0.001f;
+                    sphere2.GetComponent<Renderer>().material.color = Color.red;
+                    GameObject sphere3 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    sphere3.transform.position = edge.next.next.vertex.position;
+                    sphere3.transform.localScale = Vector3.one * 0.001f;
+                    sphere3.GetComponent<Renderer>().material.color = Color.red;
+
+                    currEdge = edge;
+                }
+            }
+        }
+    }
+
+
     bool isClicked = false;
     float translate_factor = 0.001f;
     float rotationSpeed = 0.08f;
@@ -981,11 +1368,14 @@ public class CreateMesh : MonoBehaviour
         transform.Translate(move);
 
         // Mouse Click Navigation
-        if (Input.GetMouseButtonDown(0) && !isClicked) { // Left click to create new holes
+        if (Input.GetMouseButtonDown(0) && !isClicked && !isTriangleHighlight) { // Left click to create new holes
             isClicked = true;
             CreateHole();
             holes_list.Clear();
             IdentifyHoles();
+        }
+        if (Input.GetMouseButtonDown(0) && isTriangleHighlight) { // Left click to highlight holes
+            HighlightTriangle();
         }
         if (Input.GetMouseButton(1)) { // Right-click to look around
             yaw = transform.eulerAngles.y;
@@ -1010,6 +1400,10 @@ public class CreateMesh : MonoBehaviour
             current_hole_idx = (current_hole_idx - 1 + holes_list.Count) % holes_list.Count;
             Debug.Log("Current hole vertex count: " + holes_list[current_hole_idx].Count);
             current_boundary_vertices.Clear();
+        }
+        // "Toggle" between mouse click operations
+        if (Input.GetKeyDown(KeyCode.T)) {
+            isTriangleHighlight = !isTriangleHighlight;
         }
 
         // Hole Focus and Rotation. 

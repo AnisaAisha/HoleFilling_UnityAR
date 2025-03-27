@@ -81,7 +81,7 @@ public class EdgeFlip : MonoBehaviour
                     float newCurrAR = CalculateAspectRatio(e0.vertex.position, e1.vertex.position, opp1.vertex.position);
                     float newOppAR = CalculateAspectRatio(opp0.vertex.position, opp1.vertex.position, e1.vertex.position);
 
-                    Debug.Log("old and new aspect ratios : " + currAR + " " + oppAR + " " + newCurrAR + " " + newOppAR);
+                    // Debug.Log("old and new aspect ratios : " + currAR + " " + oppAR + " " + newCurrAR + " " + newOppAR);
 
                     // Condition 1: Both improve
                     if ((newCurrAR < currAR && newOppAR < oppAR) && newCurrAR > 0 && newOppAR > 0) {
@@ -297,22 +297,22 @@ public class EdgeFlip : MonoBehaviour
             var a = Tuple.Create(oppEdge.vertex.index, oppEdge.next.vertex.index);
             Debug.Log("checking in circle test..." + IsPointInCircumcircle(v1.position, v2.position, v3.position, v4.position));
             if (!isFlip && newEdgeDict.ContainsKey(a) && IsPointInCircumcircle(v1.position, v2.position, v3.position, v4.position)) {
-                GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                sphere.transform.position = v1.position;
-                sphere.transform.localScale = Vector3.one * 0.001f;
-                sphere.GetComponent<Renderer>().material.color = Color.red;
-                GameObject sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                sphere2.transform.position = v2.position;
-                sphere2.transform.localScale = Vector3.one * 0.001f;
-                sphere2.GetComponent<Renderer>().material.color = Color.red;
-                GameObject sphere3 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                sphere3.transform.position = v3.position;
-                sphere3.transform.localScale = Vector3.one * 0.001f;
-                sphere3.GetComponent<Renderer>().material.color = Color.red; 
-                GameObject sphere4 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                sphere4.transform.position = v4.position;
-                sphere4.transform.localScale = Vector3.one * 0.001f;
-                sphere4.GetComponent<Renderer>().material.color = Color.red;
+                // GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                // sphere.transform.position = v1.position;
+                // sphere.transform.localScale = Vector3.one * 0.001f;
+                // sphere.GetComponent<Renderer>().material.color = Color.red;
+                // GameObject sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                // sphere2.transform.position = v2.position;
+                // sphere2.transform.localScale = Vector3.one * 0.001f;
+                // sphere2.GetComponent<Renderer>().material.color = Color.red;
+                // GameObject sphere3 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                // sphere3.transform.position = v3.position;
+                // sphere3.transform.localScale = Vector3.one * 0.001f;
+                // sphere3.GetComponent<Renderer>().material.color = Color.red; 
+                // GameObject sphere4 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                // sphere4.transform.position = v4.position;
+                // sphere4.transform.localScale = Vector3.one * 0.001f;
+                // sphere4.GetComponent<Renderer>().material.color = Color.red;
 
                 Edge e0 = edge.next;
                 Edge e1 = edge.next.next;
@@ -366,6 +366,17 @@ public class EdgeFlip : MonoBehaviour
         return isFlip;
     }
 
+    private bool IsPointInCircumcircle(Vector3 A, Vector3 B, Vector3 C, Vector3 D) {
+        Matrix4x4 matrix =  new Matrix4x4();
+        matrix.SetRow(0, new Vector4(A.x, A.y, A.x * A.x + A.y * A.y, 1));
+        matrix.SetRow(1, new Vector4(B.x, B.y, B.x * B.x + B.y * B.y, 1));
+        matrix.SetRow(2, new Vector4(C.x, C.y, C.x * C.x + C.y * C.y, 1));
+        matrix.SetRow(3, new Vector4(D.x, D.y, D.x * D.x + D.y * D.y, 1));
+
+        float determinant = matrix.determinant; //Determinant4x4(matrix);
+        return determinant > 0; // If positive, D is inside circumcircle => Edge should be flipped
+    }
+
     Edge FindWorstAspectRatioEdge(List<Edge> edges) {
         Edge worstEdge = null;
         float worstAspectRatio = float.MinValue;
@@ -407,16 +418,5 @@ public class EdgeFlip : MonoBehaviour
 
         Debug.Log("Valid longest edge length: " + maxLength);
         return longestValidEdge;
-    }
-
-    private bool IsPointInCircumcircle(Vector3 A, Vector3 B, Vector3 C, Vector3 D) {
-        Matrix4x4 matrix =  new Matrix4x4();
-        matrix.SetRow(0, new Vector4(A.x, A.y, A.x * A.x + A.y * A.y, 1));
-        matrix.SetRow(1, new Vector4(B.x, B.y, B.x * B.x + B.y * B.y, 1));
-        matrix.SetRow(2, new Vector4(C.x, C.y, C.x * C.x + C.y * C.y, 1));
-        matrix.SetRow(3, new Vector4(D.x, D.y, D.x * D.x + D.y * D.y, 1));
-
-        float determinant = matrix.determinant; //Determinant4x4(matrix);
-        return determinant > 0; // If positive, D is inside circumcircle => Edge should be flipped
     }
 }
