@@ -14,6 +14,7 @@ public class LoopSplitting //: MonoBehaviour
     public float minDistance = 0f;
     public int totalCount = 0;
     Edge bestEdge1, bestEdge2;
+    Vector3 current_hole_normal = Vector3.zero;
     List<int> subMeshTriangles = new List<int>(); 
     List<Edge> new_edge_list = new List<Edge>();
     HashSet<Edge> new_edges = new HashSet<Edge>();
@@ -58,8 +59,26 @@ public class LoopSplitting //: MonoBehaviour
     private bool IsCorrectWindingOrder(Vector3 p0, Vector3 p1, Vector3 p2)
     {
         Vector3 normal = Vector3.Cross(p1 - p0, p2 - p0);
-        return Vector3.Dot(normal, Vector3.up) > 0; // checking in the direction of normal
+        return Vector3.Dot(normal, current_hole_normal) > 0; // checking in the direction of normal
     }
+
+    public void ComputeAverageHoleNormal(List<Edge> hole)
+    {
+        Vector3 normalSum = Vector3.zero;
+
+        int n = hole.Count;
+        for (int i = 0; i < n; i++) {
+            Vector3 p0 = hole[i].vertex.position;
+            Vector3 p1 = hole[i].next.vertex.position;
+            Vector3 p2 = hole[i].next.next.vertex.position;
+
+            Vector3 normal = Vector3.Cross(p1 - p0, p2 - p0);
+            normalSum += normal;
+        }
+
+        current_hole_normal = normalSum.normalized;
+    }
+
 
     private Edge FindOppositeEdge(Edge edge)
     {
@@ -254,9 +273,14 @@ public class LoopSplitting //: MonoBehaviour
             previousEdge = currentEdge;
         }
         // VisualizeHolePoints(loopACopy);
-        newEdgeDict.Add(Tuple.Create(new_edge.vertex.index, new_edge.next.vertex.index), new_edge);
-        new_edges.Add(new_edge);
-        NewTriangulateHole(loopACopy, v1, v2);
+        // newEdgeDict.Add(Tuple.Create(new_edge.vertex.index, new_edge.next.vertex.index), new_edge);
+        // new_edges.Add(new_edge);
+        // NewTriangulateHole(loopACopy, v1, v2);
+        if (!AreCollinear(loopACopy)) {
+            newEdgeDict.Add(Tuple.Create(new_edge.vertex.index, new_edge.next.vertex.index), new_edge);
+            new_edges.Add(new_edge);
+            NewTriangulateHole(loopACopy, v1, v2);
+        }
 
         // Processing loop B
         List<Edge> loopBCopy = new List<Edge>();
@@ -299,147 +323,33 @@ public class LoopSplitting //: MonoBehaviour
         NewTriangulateHole(loopBCopy, v1, v2);
     }
 
+    bool AreCollinear(List<Edge> edgeList) {
+        Vector3 v1 = edgeList[0].vertex.position;
+        Vector3 v2 = edgeList[1].vertex.position;
+        Vector3 v3 = edgeList[2].vertex.position;
 
-    public void TriangulateHole(List<Edge> hole_vertices, Edge v11, Edge v22)
-    {
-        // Base case
-        if (hole_vertices.Count <= 3)
-        {
-            Debug.Log("we hit base case " + hole_vertices.Count);
+        Vector3 a = v2 - v1;
+        Vector3 b = v3 - v1;
 
-            Vector3 p0 = hole_vertices[0].vertex.position;
-            Vector3 p1 = hole_vertices[1].vertex.position;
-            Vector3 p2 = hole_vertices[2].vertex.position;
-            if (!IsCorrectWindingOrder(p0, p1, p2))
-            {
-                (p1, p2) = (p2, p1);
-            }
+        // Compute cross product
+        Vector3 crossProduct = Vector3.Cross(a, b);
+        float area = crossProduct.magnitude; // Triangle area is 0 if collinear
 
-            vertices.Add(p0);
-            vertices.Add(p1);
-            vertices.Add(p2);
+        // Normalize by vector lengths to avoid numerical issues
+        float lengthProduct = a.magnitude * b.magnitude;
 
-            // triangles.Add(vertices.Count - 3);
-            // triangles.Add(vertices.Count - 2);
-            // triangles.Add(vertices.Count - 1);
+        // Relative threshold (adjust if necessary)
+        float tolerance = 1e-6f; 
 
-            subMeshTriangles.Add(vertices.Count - 3);
-            subMeshTriangles.Add(vertices.Count - 2);
-            subMeshTriangles.Add(vertices.Count - 1);
+        // Check if cross product is small relative to vector sizes
+        bool isCollinear = (lengthProduct < 1e-8f) || (area / lengthProduct < 0.1f);
 
-            foreach(var e in hole_vertices) {
-                if (!all_edges.Contains(e)) {
-                    all_edges.Add(e);
-                }
-            }
+        Debug.Log($"Collinearity Check: {area} / {lengthProduct} = {area / lengthProduct}");
+        Debug.Log($"Points: {v1}, {v2}, {v3}, Result: {isCollinear}");
 
-            return;
-        }
-
-        (Edge v1, Edge v2) = FindBestSplitLine(hole_vertices);
-        List<Edge> loopA, loopB;
-        SplitLoopTopology(v1, v2, out loopA, out loopB);        
-        Debug.Log("Split loops: " + hole_vertices.Count + " " + loopA.Count + " " + loopB.Count);
-
-        // foreach(var e in loopB) {
-        //     if (e == v1) {
-        //         e.next = v2;
-        //     } else if (e == v2) {
-        //         e.next = loopB[1];
-        //     }
-        // }
-
-        Edge v2Prev = FindPreviousEdge(v2);
-        Edge v1Prev = FindPreviousEdge(v1);
-
-        Edge new_edge = new Edge(v1.vertex);
-
-        new_edge.next = v2;
-        v1Prev.next = new_edge;
-        
-        // Assign opposites
-        if (v1.opposite == null) {
-            Edge v1opp = new Edge(v1.next.vertex);
-            v1opp.next = new_edge;
-            v1.opposite = v1opp;
-        
-            Edge v2PrevEdgeOpp = new Edge(v2Prev.next.vertex);
-            v2PrevEdgeOpp.next = v1opp;
-            v2Prev.opposite = v2PrevEdgeOpp;
-        }
-
-        List<Edge> loopBCopy = new List<Edge>();
-        foreach(var e in loopB) {
-            if (e != v1) {
-                loopBCopy.Add(e);
-            } else {
-                loopBCopy.Add(new_edge);
-            }
-        }
-    
-        loopB = loopBCopy;
-        new_edges.Add(new_edge);
-        new_edge_indices.Add(new_edge, Tuple.Create(v1, v2));
-
-        if (!previous_edges.ContainsKey(v1)) previous_edges.Add(v1, v1Prev);
-        if (!previous_edges.ContainsKey(v2)) previous_edges.Add(v2, v2Prev);
-
-        
-
-
-        if (loopB.Count == 3) {
-            Debug.Log("loopB count is 3");
-
-            if (totalCount == 4) {
-                new_edge.next = v2Prev.opposite;
-
-                Edge v2opp = new Edge(v2.next.vertex);
-                Edge v2NextOpp = new Edge(v1Prev.next.vertex);
-                Edge newOpp = new Edge(new_edge.next.vertex);
-
-                v2opp.next = newOpp;
-                newOpp.next = v2NextOpp;     
-                v2NextOpp.next = v2opp;
-
-                v2.opposite = v2opp;
-                v2.next.opposite = v2NextOpp;
-                
-                new_edge.opposite = newOpp;
-                newOpp.opposite = new_edge;
-            } else {
-                int i = 0;
-                foreach(var e in new_edges) {
-                    Edge ev1 = new_edge_indices[e].Item1;
-                    Edge ev2 = new_edge_indices[e].Item2;
-
-                    Edge ev1Prev = previous_edges[ev1];
-                    Edge ev2Prev = previous_edges[ev2];
-
-                    
-                    if (i != 0) {
-                        Edge newOpp = new Edge(e.next.vertex);
-                        newOpp.next = new_edges.ElementAt(i - 1);
-                        e.opposite = newOpp;
-                        newOpp.opposite = e;
-                    }
-
-                    e.next = ev2Prev.opposite;
-                    i++;
-                }
-
-                Edge ed = new_edges.ElementAt(0);
-                Edge newOpp2 = new Edge(ed.next.vertex);
-                newOpp2.next = new_edges.ElementAt(new_edges.Count - 1);
-                ed.opposite = newOpp2;
-                newOpp2.opposite = ed;
-            }
-        }
-        
-        //  VisualizeHolePoints(loopB); 
-        TriangulateHole(loopA, v1, v2);
-        TriangulateHole(loopB, v1, v2);
+        return isCollinear;
     }
-
+    
     void VisualizeHolePoints(List<Edge> edges) {
         foreach (var e in edges) {
             GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);

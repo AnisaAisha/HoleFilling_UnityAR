@@ -43,44 +43,41 @@ public class SmoothMesh : MonoBehaviour
 
     // Main Smoothing function
     public void LaplacianSmoothing() {
-        Dictionary<int, Vector3> smooth_vertex_positions = new Dictionary<int, Vector3>();
-        Debug.Log("smoothing edges count: " + hole_edges.Count);
+        for (int iter = 0; iter < 10; iter++) { // Perform 10 iterations
+            Dictionary<int, Vector3> smooth_vertex_positions = new Dictionary<int, Vector3>();
+            Debug.Log("Iteration " + (iter + 1) + " - smoothing edges count: " + hole_edges.Count);
 
-        foreach (var edge in hole_edges) {
-            Vertex v = edge.vertex;
-            if (boundary_vertices.Contains(v)) continue;
+            foreach (var edge in hole_edges) {
+                Vertex v = edge.vertex;
+                if (boundary_vertices.Contains(v)) continue;
 
-            // GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            // sphere.transform.position = v.position;
-            // sphere.transform.localScale = Vector3.one * 0.001f;
-            // sphere.GetComponent<Renderer>().material.color = Color.magenta;
+                if (smooth_vertex_positions.ContainsKey(v.index)) continue; // Avoid duplicate smoothing
 
-            if (smooth_vertex_positions.ContainsKey(v.index)) continue; // Avoid duplicate smoothing
+                List<Vertex> neighbor_vertices = GetNeighboringVertices(edge);
+                Debug.Log("neighbor counts: " + neighbor_vertices.Count);
+                if (neighbor_vertices.Count == 0) continue;
 
-            List<Vertex> neighbor_vertices = GetNeighboringVertices(edge);
-            Debug.Log("neighbor counts: " + neighbor_vertices.Count);
-            if (neighbor_vertices.Count == 0) continue;
+                Vector3 vc = Vector3.zero;
+                foreach (var neighbor_v in neighbor_vertices) {
+                    vc += neighbor_v.position;
+                }
+                vc /= neighbor_vertices.Count;
 
-            Vector3 vc = Vector3.zero;
-            foreach (var neighbor_v in neighbor_vertices) {
-                vc += neighbor_v.position;
+                Vector3 dv = lambda * (vc - v.position);
+                smooth_vertex_positions[v.index] = v.position + dv;
             }
-            vc /= neighbor_vertices.Count;
 
-            Vector3 dv = lambda * (vc - v.position);
-            smooth_vertex_positions[v.index] = v.position + dv;
-        }
-
-        foreach (var edge in hole_edges) {
-            if (smooth_vertex_positions.ContainsKey(edge.vertex.index)) {
-                edge.vertex.position = smooth_vertex_positions[edge.vertex.index];
+            foreach (var edge in hole_edges) {
+                if (smooth_vertex_positions.ContainsKey(edge.vertex.index)) {
+                    edge.vertex.position = smooth_vertex_positions[edge.vertex.index];
+                }
             }
-        }
 
-        // **Update the `vertices` list using vertex indices**
-        for (int i = 0; i < vertices.Count; i++) {
-            if (smooth_vertex_positions.ContainsKey(i)) {
-                vertices[i] = smooth_vertex_positions[i];
+            // **Update the `vertices` list using vertex indices**
+            for (int i = 0; i < vertices.Count; i++) {
+                if (smooth_vertex_positions.ContainsKey(i)) {
+                    vertices[i] = smooth_vertex_positions[i];
+                }
             }
         }
     }

@@ -161,7 +161,7 @@ PlayerSettings:
   applicationIdentifier:
     Android: com.cdm.samples.densepointcloud
     Standalone: com.cdm.samples.densepointcloud
-    iPhone: com.example.unitypointcloud
+    iPhone: com.CDMVision.Point-Cloud
   buildNumber:
     Standalone: 0
     iPhone: 0

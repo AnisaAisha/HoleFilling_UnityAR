@@ -370,7 +370,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6fff6e7d8de5d45a3b28c67c5d8bd28e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  pointCloudFile: {fileID: 4900000, guid: 0408f79d7856c48e69126de598248c6a, type: 3}
+  pointCloudFile: {fileID: 4900000, guid: 2fa82fd7aabde44a7bf05ba2a5999856, type: 3}
   mat: {fileID: 2100000, guid: db9da146c42d4469dae86c27dba0f59f, type: 2}
   baseMat: {fileID: 2100000, guid: 9e9b94c15fdcc4b708150c1bfdc0c5ae, type: 2}
   wireframeMat: {fileID: 2100000, guid: ded45655b37c844f78924db6ac91045b, type: 2}
@@ -381,4 +381,4 @@ MonoBehaviour:
   splitLengthFactor: 0.8
   holeFillingMethod: 1
   edgeFlipMethod: 0
-  threshold: 0.01
+  threshold: 3.5

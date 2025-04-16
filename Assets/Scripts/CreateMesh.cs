@@ -33,6 +33,7 @@ public class CreateMesh : MonoBehaviour
     bool isEdgeSplit = false;
     Dictionary<Tuple<int, int>, Edge> newEdgeDict;
     bool isTriangleHighlight = false;
+    bool visualizeNormals = false;
 
 
     // Public variables
@@ -70,6 +71,10 @@ public class CreateMesh : MonoBehaviour
         GetPoints();
         CreateMeshFromPoints();
         IdentifyHoles();
+        
+        // for (int i = 0; i < holes_list.Count; i++) {
+        //     RemoveNonManifold(i);
+        // }
 
         Renderer rend = meshGameObj.GetComponent<Renderer>();
         Vector3 meshCenter = rend.bounds.center; 
@@ -101,133 +106,6 @@ public class CreateMesh : MonoBehaviour
         }
     }
 
-//     void CreateMeshFromPoints() {
-//         triangles = new List<int>();
-//         Debug.Log("depth, height: " + depthImgWidth + " " + depthImgHeight);
-
-//         // Image is not rotated, so width and height reversed here temporarily (192x256)
-//         int rows = depthImgHeight;
-//         int cols = depthImgWidth;
-
-//         Vertex[] v_list = new Vertex[vertices.Count];
-//         // Vector3[] barycentricCoords = new Vector3[vertices.Count];
-//         uvs = new Vector2[vertices.Count];
-//         colors = new Color[vertices.Count];
-
-//         for (int x = 0; x < rows; x++) {
-//             for (int y = 0; y < cols; y++) {
-//                 int i = x * rows + y;
-
-//                 v_list[i] = new Vertex(vertices[i], i);
-//                 float u = x / (float)(rows);
-//                 float v = y / (float)(cols);
-//                 uvs[i] = new Vector2(u, v);
-//                 colors[i] = new Color (0.4f, 0.8f, 0.4f, 1.0f);
-
-//                 // only add triangle if dist < threshold
-//                 if (isValidTriangle(i + cols, i + cols + 1, i + 1)) {
-//                     triangles.Add(i + 1);
-//                     triangles.Add(i + cols + 1);
-//                     triangles.Add(i + cols);
-
-//                     // Create Vertex and add to list
-//                     v_list[i + 1] = new Vertex(vertices[i + 1], i + 1);
-//                     v_list[i + cols + 1] = new Vertex(vertices[i + cols + 1], i + cols + 1);
-//                     v_list[i + cols] = new Vertex(vertices[i + cols], i + cols);
-
-//                     AddEdge(edgeSet, wireframeLines, i + 1, i + cols + 1);
-//                     AddEdge(edgeSet, wireframeLines, i + cols + 1, i + cols);
-//                     AddEdge(edgeSet, wireframeLines, i + cols, i + 1);
-//                 }
-
-//                 if (isValidTriangle(i + cols, i + 1, i)) {
-//                     triangles.Add(i);
-//                     triangles.Add(i + 1);
-//                     triangles.Add(i + cols);
-//                     v_list[i] = new Vertex(vertices[i], i);
-//                     v_list[i + 1] = new Vertex(vertices[i + 1], i + 1);
-//                     v_list[i + cols] = new Vertex(vertices[i + cols], i + cols);
-
-//                     AddEdge(edgeSet, wireframeLines, i, i + 1);
-//                     AddEdge(edgeSet, wireframeLines, i + 1, i + cols);
-//                     AddEdge(edgeSet, wireframeLines, i + cols, i);
-//                 }
-//             }
-//         }
-//         halfedgeMesh.BuildHalfEdgeMesh(v_list, triangles.ToArray());       
-
-//         // Create mesh
-//         // mesh = new Mesh();
-//         // mesh.vertices = vertices.ToArray();
-//         // mesh.triangles = triangles.ToArray();
-//         // mesh.uv = uvs;
-//         // // mesh.SetUVs(1, barycentricCoords);
-//         // mesh.RecalculateNormals();
-
-//         // GameObject s = new GameObject("Object");
-//         // s.AddComponent<MeshFilter>();
-//         // s.AddComponent<MeshRenderer>();
-//         // s.GetComponent<MeshFilter>().mesh = mesh;
-//         // s.AddComponent<MeshCollider>();
-//         // Renderer rend = s.GetComponent<Renderer>();
-//         // // rend.material.color = new Color (0.4f, 0.8f, 0.4f, 1.0f);
-
-//         // // Material mat = new Material(Shader.Find("Standard"));
-//         // Material mat = new Material(Shader.Find("Custom/FlatShadingNoInterpolation"));
-//         // // //Custom/VertexColor"));
-//         // texture = CreateTexture(rows, cols, colors);
-// 		// mat.SetTexture("_MainTex", texture);
-// 		// rend.material = mat;
-
-//         // meshGameObj = s;
-
-//         mesh = new Mesh();
-//         mesh.subMeshCount = 2; // Create 2 submeshes
-
-//         mesh.vertices = vertices.ToArray();
-//         mesh.SetTriangles(triangles, 0); // Submesh 0 → Normal mesh
-//         mesh.SetIndices(wireframeLines.ToArray(), MeshTopology.Lines, 1); // Submesh 1 → Wireframe
-
-//         mesh.uv = uvs;
-//         mesh.RecalculateNormals();
-
-//         GameObject s = new GameObject("Object");
-//         s.AddComponent<MeshFilter>();
-//         s.AddComponent<MeshRenderer>();
-//         s.GetComponent<MeshFilter>().mesh = mesh;
-//         s.AddComponent<MeshCollider>();
-
-//         Renderer rend = s.GetComponent<Renderer>();
-
-//         // Create and assign materials
-//         Material baseMat = new Material(Shader.Find("Custom/FlatShadingNoInterpolation"));
-//         Material wireframeMat = new Material(Shader.Find("Unlit/Color")); // Simple wireframe material
-//         wireframeMat.color = Color.black;
-
-//         texture = CreateTexture(rows, cols, colors);
-//         baseMat.SetTexture("_MainTex", texture);
-
-//         rend.materials = new Material[] { baseMat, wireframeMat };
-
-//         meshGameObj = s;
-
-
-//         Debug.Log("checking in main counts: " + vertices.Count + " " + triangles.Count);
-
-//         // ExportMeshToPLY("scannedMesh.ply");
-//     }
-//         List<int> wireframeLines = new List<int>(); // Store edges for wireframe
-//     HashSet<(int, int)> edgeSet = new HashSet<(int, int)>(); // To avoid duplicate edges
-
-//     void AddEdge(HashSet<(int, int)> edgeSet, List<int> wireframeLines, int a, int b) {
-//     var edge = a < b ? (a, b) : (b, a);
-//     if (!edgeSet.Contains(edge)) {
-//         edgeSet.Add(edge);
-//         wireframeLines.Add(a);
-//         wireframeLines.Add(b);
-//     }
-// }
-
     void CreateMeshFromPoints() {
         triangles = new List<int>();
 
@@ -235,6 +113,32 @@ public class CreateMesh : MonoBehaviour
 
         int rows = depthImgHeight;
         int cols = depthImgWidth;
+
+        float totalLength = 0f;
+        int edgeCount = 0;
+
+        for (int x = 0; x < rows; x++) {
+            for (int y = 0; y < cols; y++) {
+                int i = x * rows + y;
+
+                // Horizontal neighbor
+                if (y < cols - 1) {
+                    int j = i + 1;
+                    totalLength += Vector3.Distance(vertices[i], vertices[j]);
+                    edgeCount++;
+                }
+
+                // Vertical neighbor
+                if (x < rows - 1) {
+                    int j = i + cols;
+                    totalLength += Vector3.Distance(vertices[i], vertices[j]);
+                    edgeCount++;
+                }
+            }
+        }
+
+        float avgEdgeLength = edgeCount > 0 ? totalLength / edgeCount : 0f;
+        Debug.Log("Estimated average edge length: " + avgEdgeLength);
 
         Vertex[] v_list = new Vertex[vertices.Count];
         uvs = new Vector2[vertices.Count];
@@ -250,7 +154,7 @@ public class CreateMesh : MonoBehaviour
                 uvs[i] = new Vector2(u, v);
                 colors[i] = new Color(0.4f, 0.8f, 0.4f, 1.0f);
 
-                if (isValidTriangle(i + cols, i + cols + 1, i + 1)) {
+                if (isValidTriangle(i + cols, i + cols + 1, i + 1, threshold*avgEdgeLength)) {
                     triangles.Add(i + 1);
                     triangles.Add(i + cols + 1);
                     triangles.Add(i + cols);
@@ -260,7 +164,7 @@ public class CreateMesh : MonoBehaviour
                     v_list[i + cols] = new Vertex(vertices[i + cols], i + cols);
                 }
 
-                if (isValidTriangle(i + cols, i + 1, i)) {
+                if (isValidTriangle(i + cols, i + 1, i, threshold*avgEdgeLength)) {
                     triangles.Add(i);
                     triangles.Add(i + 1);
                     triangles.Add(i + cols);
@@ -273,6 +177,8 @@ public class CreateMesh : MonoBehaviour
         }
 
         halfedgeMesh.BuildHalfEdgeMesh(v_list, triangles.ToArray());
+        float edgeLength = halfedgeMesh.ComputeAverageEdgeLength();
+        Debug.Log("average edge length is..." + edgeLength);
 
         // Create mesh
         mesh = new Mesh();
@@ -333,8 +239,7 @@ public class CreateMesh : MonoBehaviour
         Debug.Log("Main mesh counts: " + vertices.Count + " " + triangles.Count);
     }
 
-
-    bool isValidTriangle(int ai, int bi, int ci) {
+    bool isValidTriangle(int ai, int bi, int ci, float t) {
         Vector3 a = vertices[ai];
         Vector3 b = vertices[bi];
         Vector3 c = vertices[ci];
@@ -343,7 +248,7 @@ public class CreateMesh : MonoBehaviour
         float bc = Vector3.Distance(b, c);
         float ca = Vector3.Distance(c, a);
 
-        if (ab > threshold || bc > threshold || ca > threshold) {
+        if (ab > t || bc > t || ca > t) {
             return false;
         }
         return true;
@@ -402,6 +307,44 @@ public class CreateMesh : MonoBehaviour
             
         }
 
+        if (visualizeNormals) {
+            Debug.Log("inside gizmos visualizing normals....");
+            float normalLength = 0.01f;
+
+            // Vertex normals
+            // List<int> verts = new List<int>();
+            // foreach (var e in current_hole_edges) {
+            //     verts.Add(e.vertex.index);
+            // }
+            
+            // Vector3[] vertices = mesh.vertices;
+            // Vector3[] normals = mesh.normals;
+            // for (int i = 0; i < verts.Count; i++)
+            // {
+            //     Vector3 point = meshGameObj.transform.TransformPoint(vertices[verts[i]]);
+            //     Vector3 normal = meshGameObj.transform.TransformVector(normals[verts[i]]);
+
+            //     Gizmos.color = Color.red;
+            //     Gizmos.DrawRay(point, normal * normalLength);
+            // }
+
+            // Triangle normals
+            for (int i = 0; i < subMeshTriangles.Count; i += 3)
+            {
+                Vector3 v0 = meshGameObj.transform.TransformPoint(vertices[subMeshTriangles[i]]);
+                Vector3 v1 = meshGameObj.transform.TransformPoint(vertices[subMeshTriangles[i + 1]]);
+                Vector3 v2 = meshGameObj.transform.TransformPoint(vertices[subMeshTriangles[i + 2]]);
+                Vector3 center = (v0 + v1 + v2) / 3;
+
+                Vector3 dir = Vector3.Cross(v1 - v0, v2 - v0);
+                dir /= dir.magnitude;
+
+                Gizmos.color = Color.red;
+                Gizmos.DrawRay(center, dir * normalLength);
+
+            }
+        }
+
         if (showBoundaries) {
             
             // foreach (var he in current_hole_edges)
@@ -417,15 +360,15 @@ public class CreateMesh : MonoBehaviour
             //     // sphere.transform.localScale = Vector3.one * 0.001f;
             //     // sphere.GetComponent<Renderer>().material.color = Color.red;
             // }
-            // foreach (var kvp in newEdgeDict) {
-            //     var he = kvp.Value;
-            //     if (he != null && he.next != null) Handles.DrawBezier(he.vertex.position, he.next.vertex.position, he.vertex.position, he.next.vertex.position, Color.yellow, null, 5);
-            // }
-
-            foreach (var he in overlappingTriangles) {
-                Handles.DrawBezier(he.vertex.position, he.next.vertex.position, he.vertex.position, he.next.vertex.position, Color.magenta, null, 5);
-                Handles.DrawBezier(he.next.vertex.position, he.next.next.vertex.position, he.next.vertex.position, he.next.next.vertex.position, Color.magenta, null, 5);
+            foreach (var kvp in newEdgeDict) {
+                var he = kvp.Value;
+                if (he != null && he.next != null) Handles.DrawBezier(he.vertex.position, he.next.vertex.position, he.vertex.position, he.next.vertex.position, Color.yellow, null, 5);
             }
+
+            // foreach (var he in overlappingTriangles) {
+            //     Handles.DrawBezier(he.vertex.position, he.next.vertex.position, he.vertex.position, he.next.vertex.position, Color.magenta, null, 5);
+            //     Handles.DrawBezier(he.next.vertex.position, he.next.next.vertex.position, he.next.vertex.position, he.next.next.vertex.position, Color.magenta, null, 5);
+            // }
         }
     }
 
@@ -637,9 +580,9 @@ public class CreateMesh : MonoBehaviour
     }
 
     // Check if a vertex has more than 2 boundary edges
-    void RemoveNonManifold() {
+    void RemoveNonManifold(int hole_idx) {
         List<Vector3> vertices_copy = vertices.ToList();
-        List<Edge> hole_copy = holes_list[current_hole_idx].ToList();
+        List<Edge> hole_copy = holes_list[hole_idx].ToList();
         Dictionary<Vertex, List<Edge>> vertexBoundaryEdges = new Dictionary<Vertex, List<Edge>>();
         List<Tuple<int, int>> etoreomove = new List<Tuple<int, int>>();
 
@@ -712,7 +655,7 @@ public class CreateMesh : MonoBehaviour
                         }
 
                     } while (curr_edge != newBoundary && curr_edge != null); 
-                    holes_list[current_hole_idx] = hole_edges;  
+                    holes_list[hole_idx] = hole_edges;  
 
                     int p = boundaryEdge.vertex.index;
                     int q = nextEdge.vertex.index;
@@ -721,7 +664,7 @@ public class CreateMesh : MonoBehaviour
                     RemoveTriangle(p, q, r);
 
                     Dictionary<Vertex, List<Edge>> updatedVertexBoundaryEdges = new Dictionary<Vertex, List<Edge>>();
-                    foreach(Edge edge in holes_list[current_hole_idx]) {
+                    foreach(Edge edge in holes_list[hole_idx]) {
                         if (edge.opposite == null) {
                             Vertex v = edge.vertex;
                             Vertex nv = edge.next.vertex;
@@ -751,17 +694,34 @@ public class CreateMesh : MonoBehaviour
     
 
     void UpdateMesh() {
-        Material tempMat = meshGameObj.GetComponent<Renderer>().material;
-        MeshRenderer renderer = meshGameObj.GetComponent<MeshRenderer>();
+        // Material tempMat = meshGameObj.GetComponent<Renderer>().material;
+        // MeshRenderer renderer = meshGameObj.GetComponent<MeshRenderer>();
 
-        mesh.Clear();
+        // mesh.Clear();
         mesh.vertices = vertices.ToArray();
-        mesh.triangles = triangles.ToArray();
-        mesh.RecalculateNormals();
-        meshGameObj.GetComponent<MeshFilter>().mesh = mesh;
+        // mesh.triangles = triangles.ToArray();
+        // mesh.RecalculateNormals();
+        // meshGameObj.GetComponent<MeshFilter>().mesh = mesh;
 
-        renderer.material = tempMat;
+        // renderer.material = tempMat;
         // holes_list.Clear();
+
+        // mesh.SetTriangles(triangles.ToArray(), 0);
+        // mesh.SetTriangles(subMeshTriangles.ToArray(), 1);
+        // mesh.RecalculateNormals();
+
+        mesh.SetTriangles(triangles.ToArray(), 0);
+        int[] wires = GetWireframeLines(triangles.ToArray());
+        
+
+        MeshRenderer renderer = meshGameObj.GetComponent<MeshRenderer>();
+        Material[] materials = new Material[] {
+            meshGameObj.GetComponent<Renderer>().material,
+            wireframeMat,
+        };            
+        renderer.materials = materials;
+        
+        meshGameObj.GetComponent<MeshFilter>().mesh = mesh;
     }
 
     HashSet<Vertex> current_boundary_vertices = new HashSet<Vertex>();
@@ -773,6 +733,7 @@ public class CreateMesh : MonoBehaviour
             List<Edge> hole = holes_list[current_hole_idx];
             loopSplit.totalCount = hole.Count;
             loopSplit.halfedgeMesh = halfedgeMesh;
+            loopSplit.ComputeAverageHoleNormal(hole);
 
             foreach (var e in hole) {
                 current_boundary_vertices.Add(e.vertex);
@@ -810,7 +771,7 @@ public class CreateMesh : MonoBehaviour
             mesh.subMeshCount = 4;
             // mesh.SetTriangles(triangles.ToArray(), 0);
             mesh.SetTriangles(subMeshTriangles.ToArray(), 1);
-            // mesh.RecalculateNormals();
+            mesh.RecalculateNormals();
 
             int[] wires = GetWireframeLines(triangles.ToArray());
             int[] submeshWires = GetWireframeLines(subMeshTriangles.ToArray());
@@ -835,33 +796,94 @@ public class CreateMesh : MonoBehaviour
             // current_hole_edges = new List<Edge>(freshNewEdges);
             // newEdgeDict = freshNewEdgeDict;
 
-            // Debug.Log("new edge dict count:  " + newEdgeDict.Count + " " + current_hole_edges.Count);
+            Debug.Log("new edge dict count:  " + newEdgeDict.Count + " " + current_hole_edges.Count);
+            // showBoundaries = true;
             
             // Highlighting skinnier triangles
-            foreach (var kvp in newEdgeDict) {
-                var e = kvp.Value;
-                float aspRatio = CalculateAspectRatio(e.vertex.position, e.next.vertex.position, e.next.next.vertex.position);
+            // foreach (var kvp in newEdgeDict) {
+            //     var e = kvp.Value;
+            //     float aspRatio = CalculateAspectRatio(e.vertex.position, e.next.vertex.position, e.next.next.vertex.position);
 
-                Debug.Log("checking aspect ratios..." + aspRatio);
+            //     Debug.Log("checking aspect ratios..." + aspRatio);
 
-                if (aspRatio >90f) {
-                    showBoundaries = true;
-                    overlappingTriangles.Add(e);
-                    GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                    sphere.transform.position = e.vertex.position;
-                    sphere.transform.localScale = Vector3.one * 0.0005f;
-                    sphere.GetComponent<Renderer>().material.color = Color.red;
-                    GameObject sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                    sphere2.transform.position = e.next.vertex.position;
-                    sphere2.transform.localScale = Vector3.one * 0.0005f;
-                    sphere2.GetComponent<Renderer>().material.color = Color.green;
-                    GameObject sphere3 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                    sphere3.transform.position = e.next.next.vertex.position;
-                    sphere3.transform.localScale = Vector3.one * 0.0005f;
-                    sphere3.GetComponent<Renderer>().material.color = Color.blue;
-                }
+            //     if (aspRatio >90f) {
+            //         showBoundaries = true;
+            //         overlappingTriangles.Add(e);
+            //         GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            //         sphere.transform.position = e.vertex.position;
+            //         sphere.transform.localScale = Vector3.one * 0.0005f;
+            //         sphere.GetComponent<Renderer>().material.color = Color.red;
+            //         GameObject sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            //         sphere2.transform.position = e.next.vertex.position;
+            //         sphere2.transform.localScale = Vector3.one * 0.0005f;
+            //         sphere2.GetComponent<Renderer>().material.color = Color.green;
+            //         GameObject sphere3 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            //         sphere3.transform.position = e.next.next.vertex.position;
+            //         sphere3.transform.localScale = Vector3.one * 0.0005f;
+            //         sphere3.GetComponent<Renderer>().material.color = Color.blue;
+            //     }
+            // }
+
+            // CompareNormals();
+
+            // var mesh1 = mesh.GetSubMesh(0);
+            // var mesh2 = mesh.GetSubMesh(1);
+
+            // if (mesh1.bounds.Intersects(mesh2.bounds)) {
+            //     Debug.Log("we have bounds intersection!!");
+
+            //     CheckForIntersections();
+            // }
+        }
+    }
+
+    bool IsTriangleFolded(Vector3 v1, Vector3 v2, Vector3 v3, Vector3 neighborNormal) {
+        // Compute the normal of the current triangle
+        Vector3 triangleNormal = GetTriangleNormal(v1, v2, v3);
+        
+        // Compare the normal to the neighbor's normal
+        float dotProduct = Vector3.Dot(triangleNormal, neighborNormal);
+        
+        // If the dot product is negative, the triangle's normal is opposite
+        return dotProduct < 0;
+    }
+
+    void CompareNormals() {
+        foreach(var e in current_hole_edges) {
+            Edge opp = e.opposite;
+            // Vector3 n1 = GetTriangleNormal(e.vertex.position, e.next.vertex.position, e.next.next.vertex.position);
+            Vector3 n2 = GetTriangleNormal(opp.vertex.position, opp.next.vertex.position, opp.next.next.vertex.position);
+
+            bool isFolded = IsTriangleFolded(e.vertex.position, e.next.vertex.position, e.next.next.vertex.position, n2);
+
+            // float normal = Vector3.Dot(n1, n2);
+
+            // if (normal == 0) {
+            //     Debug.Log("we might have a problem....");
+            // }
+            // if (n1.magnitude < 0.0001) {
+            if (isFolded) {
+                Debug.Log("checking if we have a problem in main....");
+                GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                sphere.transform.position = e.vertex.position;
+                sphere.transform.localScale = Vector3.one * 0.0005f;
+                sphere.GetComponent<Renderer>().material.color = Color.red;
+                GameObject sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                sphere2.transform.position = e.next.vertex.position;
+                sphere2.transform.localScale = Vector3.one * 0.0005f;
+                sphere2.GetComponent<Renderer>().material.color = Color.green;
+                GameObject sphere3 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                sphere3.transform.position = e.next.next.vertex.position;
+                sphere3.transform.localScale = Vector3.one * 0.0005f;
+                sphere3.GetComponent<Renderer>().material.color = Color.blue;
             }
         }
+
+    }
+    Vector3 GetTriangleNormal(Vector3 v1, Vector3 v2, Vector3 v3) {
+        Vector3 a = v2 - v1;
+        Vector3 b = v3 - v1;
+        return Vector3.Cross(a, b).normalized;
     }
 
     float CalculateAspectRatio(Vector3 A, Vector3 B, Vector3 C) {
@@ -903,8 +925,10 @@ public class CreateMesh : MonoBehaviour
         }
     }
 
+    List<Edge> tempEdges;
      void PerformEdgeFlip() {
         Debug.Log("before flip triangles: " + subMeshTriangles.Count);
+        
         // edgeFlip = new EdgeFlip(loopSplit.GetNewEdges(), edgeFlipIters);
         // Debug.Log("before edge flip current edge count: " + current_hole_edges.Count + " " + subMeshTriangles.Count);
         edgeFlip.new_edges = current_hole_edges;
@@ -912,9 +936,11 @@ public class CreateMesh : MonoBehaviour
         edgeFlip.triangles = subMeshTriangles; //triangles.ToList();
         edgeFlip.halfedgeMesh = halfedgeMesh;
 
-        // bool isFlip = edgeFlip.PerformEdgeFlip();
+        edgeFlip.ComputeAverageHoleNormal(holes_list[current_hole_idx]);
+
+        bool isFlip = edgeFlip.NewEdgeFlip();
         // edgeFlip.EdgeFlipPublic();
-        bool isFlip = edgeFlipMethod == EdgeFlipMethod.AspectRatio ? edgeFlip.PerformEdgeFlip() : edgeFlip.EdgeFlipCircumcircle();
+        // bool isFlip = edgeFlipMethod == EdgeFlipMethod.AspectRatio ? edgeFlip.PerformEdgeFlip() : edgeFlip.EdgeFlipCircumcircle();
 
         if (isFlip) {
             Debug.Log("after flip triangles: " + edgeFlip.new_triangles.Count);
@@ -981,6 +1007,8 @@ public class CreateMesh : MonoBehaviour
         edgeSplit.vertices = mesh.vertices.ToList();
         edgeSplit.halfedgeMesh = halfedgeMesh;
         edgeSplit.newEdgeDict = newEdgeDict;
+
+        edgeSplit.ComputeAverageHoleNormal(holes_list[current_hole_idx]);
 
         // Perform the actual vertex split
         edgeSplit.CreateEdgeSplit();
@@ -1348,7 +1376,6 @@ public class CreateMesh : MonoBehaviour
         }
     }
 
-
     bool isClicked = false;
     float translate_factor = 0.001f;
     float rotationSpeed = 0.08f;
@@ -1416,11 +1443,16 @@ public class CreateMesh : MonoBehaviour
         if (isDrawing && Input.GetKeyDown(KeyCode.Alpha3)) {
             RotateHole(Vector3.up, -500 * Time.deltaTime);
         }
+        if (Input.GetKeyDown(KeyCode.V)) {
+            Debug.Log("visualizing normals...");
+            // VisualizeNormals();
+            visualizeNormals = true;
+        }
 
         // Hole modification algorithms
-        if (Input.GetKeyDown(KeyCode.N)) {
-            RemoveNonManifold();
-        }
+        // if (Input.GetKeyDown(KeyCode.N)) {
+        //     RemoveNonManifold();
+        // }
         if (Input.GetKeyDown(KeyCode.Alpha4)) {
             PerformEdgeFlip();
         }

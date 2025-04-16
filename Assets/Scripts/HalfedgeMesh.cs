@@ -84,6 +84,26 @@ public class HalfedgeMesh //: MonoBehaviour
         }
     }
 
+    public float ComputeAverageEdgeLength() {
+        HashSet<(int, int)> seen = new HashSet<(int, int)>();
+        float totalLength = 0f;
+        int count = 0;
+
+        foreach (var edge in halfEdges) {
+            int i0 = edge.vertex.index;
+            int i1 = edge.next.vertex.index;
+
+            var pair = i0 < i1 ? (i0, i1) : (i1, i0);
+            if (seen.Contains(pair)) continue;
+
+            seen.Add(pair);
+            totalLength += Vector3.Distance(edge.vertex.position, edge.next.vertex.position);
+            count++;
+        }
+
+        return count > 0 ? totalLength / count : 0f;
+    }
+
     public void AddEdgeAndCheckOpposite(int i0, int i1, Edge he)
     {
         var edgeKey = Tuple.Create(i0, i1);

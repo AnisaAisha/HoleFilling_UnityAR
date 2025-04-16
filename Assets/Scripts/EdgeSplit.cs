@@ -18,6 +18,7 @@ public class EdgeSplit : MonoBehaviour
     int maxIter = 2;
     float scale_factor = 0.5f;
     HashSet<Edge> visited_edges = new HashSet<Edge>();
+    Vector3 current_hole_normal = Vector3.zero;
 
     public EdgeSplit(float sf) {
         scale_factor = sf;
@@ -81,38 +82,6 @@ public class EdgeSplit : MonoBehaviour
         }
 
         EdgeSplitWithNewVertex(edgeToSplit);
-        // EdgeSplit2(edgeToSplit);
-
-        // foreach (var edge in new_edges) {
-        //     if (!visited_edges.Contains(edge)) {
-        //         AddUnaffectedTriangles(edge, edge.opposite);
-        //     }
-        // }
-
-        // CASE 2 OR 3: EDGE SPLIT WITH TWO OR THREE EDGES
-        // HashSet<Edge> finalEdgesToSplit = new HashSet<Edge>();
-
-        // var nm = MarkLongestValidEdges();
-        // HashSet<Edge> edgesToSplit = new HashSet<Edge>(nm);
-        // Debug.Log("Splitting " + edgesToSplit.Count + " edges!");
-
-        // foreach (var e in edgesToSplit) {
-        //     Edge prev = FindPreviousInternalEdge(e);
-        //     Edge next = e.next;
-
-        //     // Check if at least one of its triangle neighbors is also in edgesToSplit
-        //     if (edgesToSplit.Contains(prev) || edgesToSplit.Contains(next)) {
-        //         finalEdgesToSplit.Add(e);
-        //     }
-        // }
-        // Debug.Log("Final edges to split: " + finalEdgesToSplit.Count);
-
-        // // Add edges that are not affected by splits
-        // foreach (var k in edgesToSplit) {
-        //     if (!finalEdgesToSplit.Contains(k)) {
-        //         AddUnaffectedTriangles(k, k.opposite);
-        //     }
-        // }
     }
 
     public void EdgeSplitWithNewVertex(Edge edge) {
@@ -304,6 +273,23 @@ public class EdgeSplit : MonoBehaviour
     private bool IsCorrectWindingOrder(Vector3 p0, Vector3 p1, Vector3 p2)
     {
         Vector3 normal = Vector3.Cross(p1 - p0, p2 - p0);
-        return Vector3.Dot(normal, Vector3.up) > 0; // checking in the direction of normal
+        return Vector3.Dot(normal, current_hole_normal) > 0; // checking in the direction of normal
+    }
+
+    public void ComputeAverageHoleNormal(List<Edge> hole)
+    {
+        Vector3 normalSum = Vector3.zero;
+
+        int n = hole.Count;
+        for (int i = 0; i < n; i++) {
+            Vector3 p0 = hole[i].vertex.position;
+            Vector3 p1 = hole[i].next.vertex.position;
+            Vector3 p2 = hole[i].next.next.vertex.position;
+
+            Vector3 normal = Vector3.Cross(p1 - p0, p2 - p0);
+            normalSum += normal;
+        }
+
+        current_hole_normal = normalSum.normalized;
     }
 }

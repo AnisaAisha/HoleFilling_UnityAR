@@ -10,15 +10,15 @@ public class EdgeFlip : MonoBehaviour
     Vector3[] vertices;
     bool isFlip = false;
     HashSet<Edge> visited_edges = new HashSet<Edge>();
+    Vector3 current_hole_normal = Vector3.zero;
     public Dictionary<Tuple<int, int>, Edge> anothernewEdgeDict = new Dictionary<Tuple<int, int>, Edge>();
     public List<Edge> new_edges = new List<Edge>();
     public List<Edge> updated_edges = new List<Edge>();
-    List<Edge> should_flip = new List<Edge>();
     public HalfedgeMesh halfedgeMesh;
     public List<int> triangles;
     public List<int> new_triangles = new List<int>();
-    public List<int> triangleToRemove = new List<int>();
-    public List<int> triangleToRemove2 = new List<int>();
+    public List<Tuple<int, int>> triangleToRemove = new List<Tuple<int, int>>();
+    List<Edge> triangleToRemove2 = new List<Edge>();
     public Dictionary<Tuple<int, int>, Edge> newEdgeDict;
 
 
@@ -44,182 +44,176 @@ public class EdgeFlip : MonoBehaviour
         new_triangles = persistentTriangles;
     }
 
-    // Edge flip the triangle which has the worst aspect ratio
-    public bool PerformEdgeFlip() {
-        new_triangles.Clear();
-        Debug.Log("new edges: " + new_edges.Count + " dict: " + newEdgeDict.Count + " " + new_triangles.Count);
-        // Debug.Log("Unique edges count: " + new_edges.Distinct().Count());
+    Edge FindBadTriangle() {
+        float worstAR = float.MinValue;
+        Edge worstEdge = null;
 
-        // List<int> nos = new List<int>();
-
-
-        // Operate only on newly created edges to fill the hole
-        foreach(var edge in new_edges) {
-        // foreach(var kvp in newEdgeDict) {
-        //     var edge = kvp.Value;
-
-            // if (visited_edges.Contains(edge)) {
-            //     continue;
-            // }
-            
+        foreach(var kvp in newEdgeDict) {
+            var edge = kvp.Value;
             Edge oppEdge = edge.opposite;
-            var a = Tuple.Create(oppEdge.vertex.index, oppEdge.next.vertex.index);
-            if (edge.opposite != null) {
-                if (newEdgeDict.ContainsKey(a)) {
-                    Debug.Log("valid for flip");
 
-                    // Calculate aspect ratios of current triangle and its opposite
-                    float currAR = CalculateAspectRatio(edge.vertex.position, edge.next.vertex.position, edge.next.next.vertex.position);
-                    float oppAR = CalculateAspectRatio(oppEdge.vertex.position, oppEdge.next.vertex.position, oppEdge.next.next.vertex.position);
-                    
-                    Edge e0 = edge.next;
-                    Edge e1 = edge.next.next;
-                    Edge opp0 = oppEdge.next;
-                    Edge opp1 = oppEdge.next.next;
+            Edge e0 = edge.next;
+            Edge e1 = edge.next.next;
+            Edge opp0 = oppEdge.next;
+            Edge opp1 = oppEdge.next.next;
 
-                    // Calculate new aspect ratios to check if the flip will be helpful or not
-                    float newCurrAR = CalculateAspectRatio(e0.vertex.position, e1.vertex.position, opp1.vertex.position);
-                    float newOppAR = CalculateAspectRatio(opp0.vertex.position, opp1.vertex.position, e1.vertex.position);
+            float currAR = CalculateAspectRatio(edge.vertex.position, edge.next.vertex.position, edge.next.next.vertex.position);
+            float oppAR = CalculateAspectRatio(oppEdge.vertex.position, oppEdge.next.vertex.position, oppEdge.next.next.vertex.position);
 
-                    // Debug.Log("old and new aspect ratios : " + currAR + " " + oppAR + " " + newCurrAR + " " + newOppAR);
+            // Calculate new aspect ratios to check if the flip will be helpful or not
+            float newCurrAR = CalculateAspectRatio(e0.vertex.position, e1.vertex.position, opp1.vertex.position);
+            float newOppAR = CalculateAspectRatio(opp0.vertex.position, opp1.vertex.position, e1.vertex.position);
 
-                    // Condition 1: Both improve
-                    if ((newCurrAR < currAR && newOppAR < oppAR) && newCurrAR > 0 && newOppAR > 0) {
-                    // Condition 2: Combined improves
-                    // if ((newCurrAR + newOppAR) < (currAR + oppAR) && newCurrAR > 0 && newOppAR > 0) {
-                    // Condition 3: Either one improves
-                    // if ((newCurrAR < currAR || newOppAR < oppAR) && newCurrAR > 0 && newOppAR > 0) {
-                    // Condition 4: According to some threshold
-                    // float threshold = 1.5f;
-                    // if ((newCurrAR < threshold && newOppAR < threshold) && newCurrAR > 0 && newOppAR > 0) {
-                        should_flip.Add(edge);
-                        Debug.Log("flipping edge....");
+            // if ((currAR > worstAR)){
+            //     worstAR = currAR;
+            //     worstEdge = edge;
+            //     isFlip = true;
+            // }
 
-                        // Debug.Log("new aspect ratios: " + newCurrAR + " " + newOppAR);
-
-                        RemoveTriangle(edge.vertex.index, e0.vertex.index, e1.vertex.index);
-                        RemoveTriangle(oppEdge.vertex.index, opp0.vertex.index, opp1.vertex.index);
-
-                        newEdgeDict.Remove(Tuple.Create(edge.vertex.index, edge.next.vertex.index));
-                        newEdgeDict.Remove(Tuple.Create(e0.vertex.index, e0.next.vertex.index));
-                        newEdgeDict.Remove(Tuple.Create(e1.vertex.index, e1.next.vertex.index));
-                        newEdgeDict.Remove(Tuple.Create(oppEdge.vertex.index, oppEdge.next.vertex.index)); 
-                        newEdgeDict.Remove(Tuple.Create(opp0.vertex.index, opp0.next.vertex.index));
-                        newEdgeDict.Remove(Tuple.Create(opp1.vertex.index, opp1.next.vertex.index)); 
-
-                        // first triangle flip
-                        // Edge new_edge = new Edge(opp1.vertex);
-                        // new_edge.next = e1;
-                        // e1.next = opp0;
-                        // opp0.next = new_edge;
-                        // // opposite triangle flip
-                        // Edge new_edge_opp = new Edge(e1.vertex);
-                        // new_edge_opp.next = opp1;
-                        // e0.next = new_edge_opp;
-                        // opp1.next = e0;
-
-                        // new_edge.opposite = new_edge_opp;
-                        // new_edge_opp.opposite = new_edge;
-
-                        // var b = Tuple.Create(new_edge.vertex.index, new_edge.next.vertex.index);
-                        // var c = Tuple.Create(new_edge_opp.vertex.index, new_edge_opp.next.vertex.index);
-
-                        // new code
-                        edge.vertex = opp1.vertex;
-                        edge.next = e1;
-                        e1.next = opp0;
-                        opp0.next = edge;
-
-                        oppEdge.vertex = e1.vertex;
-                        oppEdge.next = opp1;
-                        opp1.next = e0;
-                        e0.next = oppEdge;
-
-                        AddNewTriangle(edge);
-                        AddNewTriangle(oppEdge);
-
-                        // updated_edges.Add(edge);
-                        // updated_edges.Add(oppEdge);
-
-                        newEdgeDict[Tuple.Create(edge.vertex.index, edge.next.vertex.index)] = edge;
-                        newEdgeDict[Tuple.Create(e0.vertex.index, e0.next.vertex.index)] = e0;
-                        newEdgeDict[Tuple.Create(e1.vertex.index, e1.next.vertex.index)] = e1;
-                        newEdgeDict[Tuple.Create(oppEdge.vertex.index, oppEdge.next.vertex.index)] = oppEdge;
-                        newEdgeDict[Tuple.Create(opp0.vertex.index, opp0.next.vertex.index)] = opp0;
-                        newEdgeDict[Tuple.Create(opp1.vertex.index, opp1.next.vertex.index)] = opp1;
-
-                        isFlip = true;
-                        // break;
-
-                        GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                        sphere.transform.position = edge.vertex.position;
-                        sphere.transform.localScale = Vector3.one * 0.001f;
-                        sphere.GetComponent<Renderer>().material.color = Color.blue;
-                        GameObject sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                        sphere2.transform.position = edge.next.vertex.position;
-                        sphere2.transform.localScale = Vector3.one * 0.001f;
-                        sphere2.GetComponent<Renderer>().material.color = Color.blue;
-                        GameObject sphere3 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                        sphere3.transform.position = edge.next.next.vertex.position;
-                        sphere3.transform.localScale = Vector3.one * 0.001f;
-                        sphere3.GetComponent<Renderer>().material.color = Color.blue; 
-
-                        GameObject sphere4 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                        sphere4.transform.position = opp1.vertex.position;
-                        sphere4.transform.localScale = Vector3.one * 0.001f;
-                        sphere4.GetComponent<Renderer>().material.color = Color.red;
-                        GameObject sphere5 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                        sphere5.transform.position = opp1.next.vertex.position;
-                        sphere5.transform.localScale = Vector3.one * 0.001f;
-                        sphere5.GetComponent<Renderer>().material.color = Color.red;
-                        GameObject sphere6 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                        sphere6.transform.position = opp1.next.next.vertex.position;
-                        sphere6.transform.localScale = Vector3.one * 0.001f;
-                        sphere6.GetComponent<Renderer>().material.color = Color.red;
-        
-                        // Debug.Log("after flip: " + i + " " + triangles.Count);
-                    } else {
-                        Debug.Log("Flipping will not improve aspect ratios!! ");
-                        
-                        AddNewTriangle(edge);
-                        // AddNewTriangle(oppEdge);
-                    }
-                
-                } else {
-                    // if (!visited_edges.Contains(edge)) {
-                        AddNewTriangle(edge); 
-                        // updated_edges.Add(edge);
-                    // }
-                }
+            // if ((newCurrAR < currAR && newOppAR < oppAR) && newCurrAR > 0 && newOppAR > 0) {
+            float worstBefore = Mathf.Max(currAR, oppAR);
+            float worstAfter = Mathf.Max(newCurrAR, newOppAR);
+            // float worstBefore = (currAR + oppAR) / 2f;
+            // float worstAfter = (newCurrAR + newOppAR) / 2f;
+            if (worstAfter < worstBefore && newCurrAR > 0 && newOppAR > 0) { 
+                worstAR = currAR;
+                worstEdge = edge;
+                isFlip = true;
+                return worstEdge;
             }
         }
-
-        // foreach (var edge in newEdgeDict.Values) {
-        //     updated_edges.Add(edge);
-        // }
+        Debug.Log("Worst aspect ratio is: " + worstAR + " worst edge " + worstEdge);
+        // GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        // sphere.transform.position = worstEdge.vertex.position;
+        // sphere.transform.localScale = Vector3.one * 0.001f;
+        // sphere.GetComponent<Renderer>().material.color = Color.blue;
+        // GameObject sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        // sphere2.transform.position = worstEdge.next.vertex.position;
+        // sphere2.transform.localScale = Vector3.one * 0.001f;
+        // sphere2.GetComponent<Renderer>().material.color = Color.blue;
+        // GameObject sphere3 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        // sphere3.transform.position = worstEdge.next.next.vertex.position;
+        // sphere3.transform.localScale = Vector3.one * 0.001f;
+        // sphere3.GetComponent<Renderer>().material.color = Color.blue; 
         
-        // Debug.Log("edges counts: " + new_edges.Count + " " + updated_edges.Count);
-        // Debug.Log("edges dicts counts: " + newEdgeDict.Count + " " + anothernewEdgeDict.Count);
-        // newEdgeDict = anothernewEdgeDict;
+        return worstEdge;
+    }
+
+    public bool NewEdgeFlip() {
+        new_triangles.Clear();
+        Edge edge = FindBadTriangle(); 
+        if (edge == null) {
+            isFlip = false;
+            return isFlip;
+        }
+        // Edge edge = FindLongestValidEdge();
+        // Debug.Log("missing " + new_edges.Contains(missing) + " " + newEdgeDict.ContainsKey(Tuple.Create(missing.vertex.index, missing.next.vertex.index)));
+        Edge oppEdge = edge.opposite;
+        
+        isFlip = true;
+        Edge e0 = edge.next;
+        Edge e1 = edge.next.next;
+        Edge opp0 = oppEdge.next;
+        Edge opp1 = oppEdge.next.next;
+
+        // Update connectivity for flip
+        edge.vertex = opp1.vertex;
+        edge.next = e1;
+        e1.next = opp0;
+        opp0.next = edge;
+
+        oppEdge.vertex = e1.vertex;
+        oppEdge.next = opp1;
+        opp1.next = e0;
+        e0.next = oppEdge;
+
+        AddNewTriangle(edge);
+        AddNewTriangle(oppEdge);
+
+        // Add back triangles that are unaffected by flip
+        AddUnaffectedTriangles(edge, edge.opposite);
+        
         return isFlip;
     }
 
-    public void Reset() {
-        new_edges.Clear();
-        updated_edges.Clear();
-        triangles.Clear();
-        new_triangles.Clear();
-        newEdgeDict.Clear();
-        // anothernewEdgeDict.Clear();
-        isFlip = false;
+    private void AddUnaffectedTriangles(Edge edge, Edge opposite) {
+        HashSet<Edge> affectedEdges = new HashSet<Edge> {
+            edge, edge.next, edge.next.next,
+            opposite, opposite.next, opposite.next.next
+        };
+
+        foreach (Edge e in new_edges) {
+        // foreach(var kvp in newEdgeDict) {
+        //     var e = kvp.Value;
+            // Skip affected edges
+            if (affectedEdges.Contains(e)) continue;
+
+            // Check if the edge forms a triangle
+            if (e.next != null && e.next.next != null && e.next.next.next != null) {
+                AddNewTriangle(e);
+                // AddNewTriangle(e.opposite);
+            }
+
+            // if (affectedEdges.Contains(e.opposite)) continue;
+            // // Check if the edge forms a triangle
+            // if (e.opposite.next != null && e.opposite.next.next != null && e.opposite.next.next.next != null) {
+            //     AddNewTriangle(e.opposite);
+            // }
+        }
     }
 
-    private void AddNewTriangle(Edge edge) {
-        new_triangles.Add(edge.vertex.index);
-        new_triangles.Add(edge.next.vertex.index);
-        new_triangles.Add(edge.next.next.vertex.index);
+    HashSet<string> triangleSet = new HashSet<string>();
+    HashSet<Edge> visitedTriangleEdges = new HashSet<Edge>();
 
-        updated_edges.Add(edge);
+    private void AddNewTriangle(Edge edge) {
+        // if (visitedTriangleEdges.Contains(edge)) return;
+
+        Edge e1 = edge;
+        Edge e2 = edge.next;
+        Edge e3 = edge.next.next;
+
+        if (!IsCorrectWindingOrder(e1.vertex.position, e2.vertex.position, e3.vertex.position)) {
+            (e2, e3) = (e3, e2);
+        }
+
+        new_triangles.Add(e1.vertex.index);
+        new_triangles.Add(e2.vertex.index);
+        new_triangles.Add(e3.vertex.index);
+
+        updated_edges.Add(e1);
+
+        // visitedTriangleEdges.Add(e1);
+        // visitedTriangleEdges.Add(e2);
+        // visitedTriangleEdges.Add(e3);
+
+        // var indices = new int[] {
+        //     edge.vertex.index,
+        //     edge.next.vertex.index,
+        //     edge.next.next.vertex.index
+        // };
+        // Array.Sort(indices); // sort for consistent ordering
+        // string key = $"{indices[0]}_{indices[1]}_{indices[2]}";
+
+        // if (!triangleSet.Contains(key)) {
+        //     triangleSet.Add(key);
+        //     new_triangles.Add(edge.vertex.index);
+        //     new_triangles.Add(edge.next.vertex.index);
+        //     new_triangles.Add(edge.next.next.vertex.index);
+
+        //     updated_edges.Add(edge);
+        // } 
+        
+        
+       
+
+        // updated_edges.Add(edge);
+
+        // if (!updated_edges.Contains(edge)) {
+        //     updated_edges.Add(edge);
+        //     // Debug.Log($"Updated edge added: {edge.vertex.index} -> {edge.next.vertex.index}");
+        // } else {
+        //     Debug.LogWarning($"⚠️ Edge already in updated_edges: {edge.vertex.index} -> {edge.next.vertex.index}");
+        // }
 
 
         // var a = Tuple.Create(edge.vertex.index, edge.next.vertex.index);
@@ -242,6 +236,230 @@ public class EdgeFlip : MonoBehaviour
         // sphere3.transform.position = edge.next.next.vertex.position;
         // sphere3.transform.localScale = Vector3.one * 0.001f;
         // sphere3.GetComponent<Renderer>().material.color = Color.cyan; 
+    }
+
+    List<string> affectedTriangleKeys = new List<string>();
+    private string GetTriangleKey(Edge e) {
+        var indices = new int[] {
+            e.vertex.index,
+            e.next.vertex.index,
+            e.next.next.vertex.index
+        };
+        Array.Sort(indices);
+        return $"{indices[0]}_{indices[1]}_{indices[2]}";
+    }
+
+    // Edge flip the triangle which has the worst aspect ratio
+    public bool PerformEdgeFlip() {
+        new_triangles.Clear();
+        Debug.Log("new edges: " + new_edges.Count + " dict: " + newEdgeDict.Count + " " + new_triangles.Count);
+        // Debug.Log("Unique edges count: " + new_edges.Distinct().Count());
+
+        // List<int> nos = new List<int>();
+
+
+        // Operate only on newly created edges to fill the hole
+        foreach(var edge in new_edges) {
+        // foreach(var kvp in newEdgeDict) {
+            // var edge = kvp.Value;
+            
+            Edge oppEdge = edge.opposite;
+            var a = Tuple.Create(oppEdge.vertex.index, oppEdge.next.vertex.index);
+            if (edge.opposite != null) {
+                // if (newEdgeDict.ContainsKey(a)) {
+                    Debug.Log("valid for flip");
+
+                    // Calculate aspect ratios of current triangle and its opposite
+                    float currAR = CalculateAspectRatio(edge.vertex.position, edge.next.vertex.position, edge.next.next.vertex.position);
+                    float oppAR = CalculateAspectRatio(oppEdge.vertex.position, oppEdge.next.vertex.position, oppEdge.next.next.vertex.position);
+                    
+                    Edge e0 = edge.next;
+                    Edge e1 = edge.next.next;
+                    Edge opp0 = oppEdge.next;
+                    Edge opp1 = oppEdge.next.next;
+
+                    // Calculate new aspect ratios to check if the flip will be helpful or not
+                    float newCurrAR = CalculateAspectRatio(e0.vertex.position, e1.vertex.position, opp1.vertex.position);
+                    float newOppAR = CalculateAspectRatio(opp0.vertex.position, opp1.vertex.position, e1.vertex.position);
+
+                    // Debug.Log("old and new aspect ratios : " + currAR + " " + oppAR + " " + newCurrAR + " " + newOppAR);
+
+                    // GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    // sphere.transform.position = edge.vertex.position;
+                    // sphere.transform.localScale = Vector3.one * 0.001f;
+                    // sphere.GetComponent<Renderer>().material.color = Color.blue;
+                    // GameObject sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    // sphere2.transform.position = edge.next.vertex.position;
+                    // sphere2.transform.localScale = Vector3.one * 0.001f;
+                    // sphere2.GetComponent<Renderer>().material.color = Color.blue;
+                    // GameObject sphere3 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    // sphere3.transform.position = edge.next.next.vertex.position;
+                    // sphere3.transform.localScale = Vector3.one * 0.001f;
+                    // sphere3.GetComponent<Renderer>().material.color = Color.blue; 
+
+                    // GameObject sphere4 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    // sphere4.transform.position = e0.vertex.position;
+                    // sphere4.transform.localScale = Vector3.one * 0.001f;
+                    // sphere4.GetComponent<Renderer>().material.color = Color.red;
+                    // GameObject sphere5 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    // sphere5.transform.position = e1.vertex.position;
+                    // sphere5.transform.localScale = Vector3.one * 0.001f;
+                    // sphere5.GetComponent<Renderer>().material.color = Color.red;
+                    // GameObject sphere6 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    // sphere6.transform.position = opp1.vertex.position;
+                    // sphere6.transform.localScale = Vector3.one * 0.001f;
+                    // sphere6.GetComponent<Renderer>().material.color = Color.red;
+
+                    // Condition 0: Max
+                    // float worstBefore = Mathf.Max(currAR, oppAR);
+                    // float worstAfter = Mathf.Max(newCurrAR, newOppAR);
+                    // float worstBefore = (currAR + oppAR) / 2f;
+                    // float worstAfter = (newCurrAR + newOppAR) / 2f;
+                    // if (worstAfter < worstBefore && newCurrAR > 0 && newOppAR > 0) {
+                        
+                    // Condition 1: Both improve
+                    if ((newCurrAR < currAR && newOppAR < oppAR) && newCurrAR > 0 && newOppAR > 0) {
+                    // Condition 2: Combined improves
+                    // if ((newCurrAR + newOppAR) < (currAR + oppAR) && newCurrAR > 0 && newOppAR > 0) {
+                    // Condition 3: Either one improves
+                    // if ((newCurrAR < currAR || newOppAR < oppAR) && newCurrAR > 0 && newOppAR > 0) {
+                    // Condition 4: According to some threshold
+                    // float threshold = 1.5f;
+                    // if ((newCurrAR < threshold && newOppAR < threshold) && newCurrAR > 0 && newOppAR > 0) {
+                        Debug.Log("flipping edge....");
+
+                        // Debug.Log("new aspect ratios: " + newCurrAR + " " + newOppAR);
+
+                        // RemoveTriangle(edge.vertex.index, e0.vertex.index, e1.vertex.index);
+                        // RemoveTriangle(oppEdge.vertex.index, opp0.vertex.index, opp1.vertex.index);
+
+                        // newEdgeDict.Remove(Tuple.Create(edge.vertex.index, edge.next.vertex.index));
+                        // newEdgeDict.Remove(Tuple.Create(e0.vertex.index, e0.next.vertex.index));
+                        // newEdgeDict.Remove(Tuple.Create(e1.vertex.index, e1.next.vertex.index));
+                        // newEdgeDict.Remove(Tuple.Create(oppEdge.vertex.index, oppEdge.next.vertex.index)); 
+                        // newEdgeDict.Remove(Tuple.Create(opp0.vertex.index, opp0.next.vertex.index));
+                        // newEdgeDict.Remove(Tuple.Create(opp1.vertex.index, opp1.next.vertex.index)); 
+
+                        triangleToRemove.Add(Tuple.Create(edge.vertex.index, edge.next.vertex.index));
+                        triangleToRemove.Add(Tuple.Create(e0.vertex.index, e0.next.vertex.index));
+                        triangleToRemove.Add(Tuple.Create(e1.vertex.index, e1.next.vertex.index));
+                        triangleToRemove.Add(Tuple.Create(oppEdge.vertex.index, oppEdge.next.vertex.index)); 
+                        triangleToRemove.Add(Tuple.Create(opp0.vertex.index, opp0.next.vertex.index));
+                        triangleToRemove.Add(Tuple.Create(opp1.vertex.index, opp1.next.vertex.index)); 
+
+
+                        // new code
+                        edge.vertex = opp1.vertex;
+                        edge.next = e1;
+                        e1.next = opp0;
+                        opp0.next = edge;
+
+                        oppEdge.vertex = e1.vertex;
+                        oppEdge.next = opp1;
+                        opp1.next = e0;
+                        e0.next = oppEdge;
+
+                        AddNewTriangle(edge);
+                        AddNewTriangle(oppEdge);
+
+                        // newEdgeDict[Tuple.Create(edge.vertex.index, edge.next.vertex.index)] = edge;
+                        // newEdgeDict[Tuple.Create(e0.vertex.index, e0.next.vertex.index)] = e0;
+                        // newEdgeDict[Tuple.Create(e1.vertex.index, e1.next.vertex.index)] = e1;
+                        // newEdgeDict[Tuple.Create(oppEdge.vertex.index, oppEdge.next.vertex.index)] = oppEdge;
+                        // newEdgeDict[Tuple.Create(opp0.vertex.index, opp0.next.vertex.index)] = opp0;
+                        // newEdgeDict[Tuple.Create(opp1.vertex.index, opp1.next.vertex.index)] = opp1;
+
+                        isFlip = true;
+                        // break;
+
+                        GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                        sphere.transform.position = edge.vertex.position;
+                        sphere.transform.localScale = Vector3.one * 0.001f;
+                        sphere.GetComponent<Renderer>().material.color = Color.blue;
+                        GameObject sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                        sphere2.transform.position = edge.next.vertex.position;
+                        sphere2.transform.localScale = Vector3.one * 0.001f;
+                        sphere2.GetComponent<Renderer>().material.color = Color.blue;
+                        GameObject sphere3 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                        sphere3.transform.position = edge.next.next.vertex.position;
+                        sphere3.transform.localScale = Vector3.one * 0.001f;
+                        sphere3.GetComponent<Renderer>().material.color = Color.blue; 
+
+                        // GameObject sphere4 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                        // sphere4.transform.position = opp1.vertex.position;
+                        // sphere4.transform.localScale = Vector3.one * 0.001f;
+                        // sphere4.GetComponent<Renderer>().material.color = Color.red;
+                        // GameObject sphere5 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                        // sphere5.transform.position = opp1.next.vertex.position;
+                        // sphere5.transform.localScale = Vector3.one * 0.001f;
+                        // sphere5.GetComponent<Renderer>().material.color = Color.red;
+                        // GameObject sphere6 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                        // sphere6.transform.position = opp1.next.next.vertex.position;
+                        // sphere6.transform.localScale = Vector3.one * 0.001f;
+                        // sphere6.GetComponent<Renderer>().material.color = Color.red;
+        
+                        // Debug.Log("after flip: " + i + " " + triangles.Count);
+                    } else {
+                        Debug.Log("Flipping will not improve aspect ratios!! ");
+                        
+                        AddNewTriangle(edge);
+                        // AddNewTriangle(oppEdge);
+                    }
+                
+                // }
+                // else {
+                //     AddNewTriangle(edge); 
+                // }
+            }
+            // else {
+            //     AddNewTriangle(edge); 
+            // }
+        }
+
+        // foreach (var t in triangleToRemove) {
+        //     newEdgeDict.Remove(t);
+        // }
+        
+        // Debug.Log("edges counts: " + new_edges.Count + " " + updated_edges.Count);
+        // Debug.Log("edges dicts counts: " + newEdgeDict.Count + " " + anothernewEdgeDict.Count);
+        // newEdgeDict = anothernewEdgeDict;
+        return isFlip;
+    }
+
+    private bool IsCorrectWindingOrder(Vector3 p0, Vector3 p1, Vector3 p2)
+    {
+        Vector3 normal = Vector3.Cross(p1 - p0, p2 - p0);
+        return Vector3.Dot(normal, current_hole_normal) > 0; // checking in the direction of normal
+    }
+
+    public void ComputeAverageHoleNormal(List<Edge> hole)
+    {
+        Vector3 normalSum = Vector3.zero;
+
+        int n = hole.Count;
+        for (int i = 0; i < n; i++) {
+            Vector3 p0 = hole[i].vertex.position;
+            Vector3 p1 = hole[i].next.vertex.position;
+            Vector3 p2 = hole[i].next.next.vertex.position;
+
+            Vector3 normal = Vector3.Cross(p1 - p0, p2 - p0);
+            normalSum += normal;
+        }
+
+        current_hole_normal = normalSum.normalized;
+    }
+
+    public void Reset() {
+        new_edges.Clear();
+        updated_edges.Clear();
+        triangles.Clear();
+        new_triangles.Clear();
+        newEdgeDict.Clear();
+        // anothernewEdgeDict.Clear();
+        affectedTriangleKeys.Clear();
+        triangleSet.Clear();
+        visitedTriangleEdges.Clear();
+        isFlip = false;
     }
 
     void RemoveTriangle(int p, int q, int r) {
@@ -410,7 +628,7 @@ public class EdgeFlip : MonoBehaviour
             float edgeLength = Vector3.Distance(e.vertex.position, e.next.vertex.position);
             var edgeKey = Tuple.Create(e.opposite.vertex.index, e.opposite.next.vertex.index);
 
-            if (newEdgeDict.ContainsKey(edgeKey) && edgeLength > maxLength) {
+            if (edgeLength > maxLength) {
                 maxLength = edgeLength;
                 longestValidEdge = e;
             }
