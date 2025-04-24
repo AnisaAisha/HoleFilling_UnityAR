@@ -748,6 +748,7 @@ public class CreateMesh : MonoBehaviour
             // new code
 
             loopSplit.NewTriangulateHole(hole, null, null);
+            // loopSplit.NewTriangulateHoleDihedral(hole);
             subMeshTriangles = new List<int>();
             List<Edge> newedges = loopSplit.GetNewEdges();
             // Debug.Log("new edges count: " + newedges.Count);
@@ -1277,30 +1278,6 @@ public class CreateMesh : MonoBehaviour
 
         if (Physics.Raycast(inputRay, out hit, Mathf.Infinity)) {
             MeshFilter meshFilter = hit.collider.GetComponent<MeshFilter>();
-
-            // if (meshFilter != null) {
-            //     Mesh mesh = meshFilter.mesh;
-            //     Mesh newMesh = Instantiate(mesh); // Clone the mesh
-            //     meshFilter.mesh = newMesh;
-
-            //     int[] triangles = newMesh.triangles;
-            //     Color[] colors = newMesh.colors;
-
-            //     if (colors.Length == 0) {
-            //         colors = new Color[newMesh.vertexCount]; // Ensure colors array exists
-            //         for (int i = 0; i < colors.Length; i++)
-            //             colors[i] = Color.white; // Default color
-            //     }
-
-            //     int triIndex = hit.triangleIndex * 3;
-            //     currTriangle = triIndex;
-            //     colors[triangles[triIndex]] = Color.red;
-            //     colors[triangles[triIndex + 1]] = Color.red;
-            //     colors[triangles[triIndex + 2]] = Color.red;
-
-            //     newMesh.colors = colors;
-            // }
-
             
             int hitTriangleIndex = hit.triangleIndex * 3;
             // currTriangle = triangleIndex;
@@ -1322,32 +1299,6 @@ public class CreateMesh : MonoBehaviour
                     globalIndex += numTriangles;
                 }
             }
-            // if (triangleToSubmeshMap.TryGetValue(hit.triangleIndex, out int submeshIndex))
-            // {
-            //     Debug.Log("Triangle belongs to Submesh: " + submeshIndex);
-            // }
-            // int submeshIndex = GetSubmeshIndex(mesh, hit.triangleIndex);
-
-            // Debug.Log("Hit Submesh Index: " + submeshIndex);
-
-            // if (submeshIndex == 1)
-            // {
-            //     Debug.Log("Triangle is from submesh 1!");
-            //     // Handle logic specific to submesh 1
-            // }
-            // int i0 = subMeshTriangles[triangleIndex * 3];     // First vertex index
-            // int i1 = subMeshTriangles[triangleIndex * 3 + 1]; // Second vertex index
-            // int i2 = subMeshTriangles[triangleIndex * 3 + 2];
-
-            // Tuple<int, int> edgeKey1 = Tuple.Create(i0, i1);
-            // Tuple<int, int> edgeKey2 = Tuple.Create(i1, i2);
-            // Tuple<int, int> edgeKey3 = Tuple.Create(i2, i0);
-
-            // Edge edge1 = halfedgeMesh.edgesDict.ContainsKey(edgeKey1) ? halfedgeMesh.edgesDict[edgeKey1] : null;
-            // Edge edge2 = halfedgeMesh.edgesDict.ContainsKey(edgeKey2) ? halfedgeMesh.edgesDict[edgeKey2] : null;
-            // Edge edge3 = halfedgeMesh.edgesDict.ContainsKey(edgeKey3) ? halfedgeMesh.edgesDict[edgeKey3] : null;
-
-            // Debug.Log("checking if we found triangle...." + edge1 + " " + edge2 + " " + edge3);
 
             foreach (var kvp in halfedgeMesh.edgesDict)
             {
@@ -1374,6 +1325,163 @@ public class CreateMesh : MonoBehaviour
                 }
             }
         }
+    }
+
+    List<Vertex> GetNeighboringVertices(Edge boundaryEdge) {
+        List <Vertex> neighbors = new List<Vertex>();
+
+        if (boundaryEdge.opposite != null)
+        {
+            Debug.LogWarning("This edge is not a boundary edge.");
+            return neighbors;
+        }
+
+        Vertex vCurr = boundaryEdge.vertex;
+        Vertex vNext = boundaryEdge.next.vertex;
+        Vertex vPrev = null;
+
+        // Find the edge whose `next` is the current boundary edge
+        Edge current = boundaryEdge;
+        while (current.next != boundaryEdge)
+        {
+            current = current.next;
+
+            // Safety check to prevent infinite loops
+            if (current == null || current == boundaryEdge.opposite)
+            {
+                Debug.LogError("Loop not properly closed or corrupt half-edge structure.");
+                return neighbors;
+            }
+        }
+
+        vPrev = current.vertex;
+
+        // neighbors.Add(vPrev);
+        // // neighbors.Add(vCurr);
+        // neighbors.Add(vNext);
+
+        if (vPrev != null && vPrev != vCurr && (vPrev.position - vCurr.position).sqrMagnitude > 1e-6f)
+            neighbors.Add(vPrev);
+
+        if (vNext != null && vNext != vCurr && (vNext.position - vCurr.position).sqrMagnitude > 1e-6f)
+            neighbors.Add(vNext);
+
+
+        return neighbors;
+    }
+    void SmoothHoleBoundaries() {
+        float lambda = 0.6307f;
+        float mu = -0.67315f;
+        List<Edge> hole = holes_list[current_hole_idx];
+
+        // Get boundary vertices of current hole first
+        foreach (var e in hole) {
+            current_boundary_vertices.Add(e.vertex);
+        }
+
+        for (int iter = 0; iter < 1; iter++) { // Perform 10 iterations
+            // lambda step
+            Dictionary<int, Vector3> lambda_positions = new Dictionary<int, Vector3>();
+            foreach (var edge in hole) {
+                Vertex v = edge.vertex;
+                if (!current_boundary_vertices.Contains(v)) continue;
+                if (lambda_positions.ContainsKey(v.index)) continue;
+
+                List<Vertex> neighbors = GetNeighboringVertices(edge);
+                if (neighbors.Count == 0) continue;
+
+                Vector3 avg = Vector3.zero;
+                foreach (var neighbor in neighbors) {
+                    avg += neighbor.position;
+                }
+                avg /= neighbors.Count;
+
+                // Vector3 newPos = v.position + lambda * (avg - v.position);
+                // lambda_positions[v.index] = newPos;
+                float collapseThreshold = 1e-6f;
+
+                Vector3 newPos = v.position + lambda * (avg - v.position);
+                if ((newPos - v.position).sqrMagnitude > collapseThreshold) {
+                    lambda_positions[v.index] = newPos;
+                }
+
+            }
+
+            foreach (var edge in hole) {
+                if (lambda_positions.ContainsKey(edge.vertex.index)) {
+                    edge.vertex.position = lambda_positions[edge.vertex.index];
+                }
+            }
+
+            // --- mu step ---
+            Dictionary<int, Vector3> mu_positions = new Dictionary<int, Vector3>();
+            foreach (var edge in hole) {
+                Vertex v = edge.vertex;
+                if (!current_boundary_vertices.Contains(v)) continue;
+                if (mu_positions.ContainsKey(v.index)) continue;
+
+                List<Vertex> neighbors = GetNeighboringVertices(edge);
+                if (neighbors.Count == 0) continue;
+
+                Vector3 avg = Vector3.zero;
+                foreach (var neighbor in neighbors) {
+                    avg += neighbor.position;
+                }
+                avg /= neighbors.Count;
+
+                // Vector3 newPos = v.position + mu * (avg - v.position);
+                // mu_positions[v.index] = newPos;
+
+                float collapseThreshold = 1e-6f;
+
+                Vector3 newPos = v.position + mu * (avg - v.position);
+                if ((newPos - v.position).sqrMagnitude > collapseThreshold) {
+                    mu_positions[v.index] = newPos;
+                }
+            }
+
+            foreach (var edge in hole) {
+                if (mu_positions.ContainsKey(edge.vertex.index)) {
+                    edge.vertex.position = mu_positions[edge.vertex.index];
+                }
+            }
+        }
+
+        HashSet<Vector3> test = new HashSet<Vector3>();
+        foreach (var edge in hole) {
+            Vertex v = edge.vertex;
+            if(test.Contains(v.position)) Debug.Log("duplicate detected");
+            if (v.index >= 0 && v.index < vertices.Count) {
+                vertices[v.index] = v.position;
+            }
+            test.Add(v.position);
+
+            // GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            // sphere.transform.position = v.position;
+            // sphere.transform.localScale = Vector3.one * 0.001f;
+            // sphere.GetComponent<Renderer>().material.color = Color.cyan;
+        }
+
+        Debug.Log("vertex count check: " + vertices.Count);
+
+        mesh.Clear();
+        mesh.vertices = vertices.ToArray();
+        mesh.subMeshCount = 2;
+        mesh.SetTriangles(triangles.ToArray(), 0);
+        mesh.RecalculateNormals();
+
+        int[] wires = GetWireframeLines(triangles.ToArray());
+        mesh.SetIndices(wires, MeshTopology.Lines, 1); // Wireframe submesh
+
+        MeshRenderer renderer = meshGameObj.GetComponent<MeshRenderer>();
+        Material[] materials = new Material[] {
+            baseMat,
+            wireframeMat
+        };            
+        renderer.materials = materials;
+        
+        meshGameObj.GetComponent<MeshFilter>().mesh = mesh;
+        current_boundary_vertices.Clear();
     }
 
     bool isClicked = false;
@@ -1445,8 +1553,10 @@ public class CreateMesh : MonoBehaviour
         }
         if (Input.GetKeyDown(KeyCode.V)) {
             Debug.Log("visualizing normals...");
-            // VisualizeNormals();
             visualizeNormals = true;
+        }
+        if (Input.GetKeyDown(KeyCode.K)) {
+            SmoothHoleBoundaries();
         }
 
         // Hole modification algorithms

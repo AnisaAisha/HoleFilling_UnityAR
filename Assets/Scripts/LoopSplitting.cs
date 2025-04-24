@@ -177,6 +177,228 @@ public class LoopSplitting //: MonoBehaviour
         } while (currEdge != startEdge && currEdge != null); 
         return prevEdge;
     }
+    // public void NewTriangulateHoleDihedral(List<Edge> holeEdges) {
+    //     if (holeEdges.Count <= 3) {
+    //         // Base case: make a triangle and assign face like before
+    //         Debug.Log("new triangulate we hit base case " + holeEdges.Count);
+    //         List<int> triangleIndices = new List<int>();
+
+    //         for (int i = 0; i < 3; i++) {
+    //             int vertexIndex = holeEdges[i].vertex.index; // Retrieve the existing vertex index
+    //             triangleIndices.Add(vertexIndex);
+
+    //             Edge currentEdge = holeEdges[i];
+    //             var key = Tuple.Create(currentEdge.vertex.index, currentEdge.next.vertex.index);
+    //             if (newEdgeDict.ContainsKey(key)) {
+    //                 new_edge_list.Add(newEdgeDict[key]);
+    //             }
+    //         }
+
+    //         // Ensure the correct winding order
+    //         if (!IsCorrectWindingOrder(vertices[triangleIndices[0]], vertices[triangleIndices[1]], vertices[triangleIndices[2]])) {
+    //             (triangleIndices[1], triangleIndices[2]) = (triangleIndices[2], triangleIndices[1]);
+    //         }
+
+    //         // Add indices for the triangle
+    //         subMeshTriangles.AddRange(triangleIndices);
+
+    //         Edge he1 = holeEdges[0];
+    //         Edge he2 = he1.next;
+    //         Edge he3 = he1.next.next;
+
+    //         // **Create a new face and assign an edge**
+    //         Face newFace = new Face(he1); 
+    //         newFace.face_idx = subMeshTriangles.Count - 1; //halfedgeMesh.patch_faces.Count; // Assign an index to the new face
+    //         halfedgeMesh.patch_faces.Add(newFace);
+    //         Debug.Log("new face check: " + newFace.face_idx);
+
+    //         // **Assign the face to the edges**
+    //         he1.face = newFace;
+    //         he2.face = newFace;
+    //         he3.face = newFace;
+
+    //         // add triangle to half edge DS at this point
+    //         halfedgeMesh.AddTriangle(holeEdges[0], holeEdges[1], holeEdges[2], newEdgeDict); //, new_edge_list[new_edge_list.Count - 1]);
+    //         return;
+    //     }
+
+    //     float minMaxDihedral = float.MaxValue;
+    //     (Edge, Edge, Edge) bestTriangle = (null, null, null);
+
+    //     // Try all triangles using three consecutive edges
+    //     for (int i = 0; i < holeEdges.Count; i++) {
+    //         Edge e1 = holeEdges[i];
+    //         Edge e2 = holeEdges[i].next;
+    //         Edge e3 = holeEdges[i].next.next;
+
+    //         // Compute dihedral angle with adjacent triangle(s) (e.g. one adjacent to e1 or e3 if any)
+    //         float maxDihedral = MaxDihedralAngle(e1, e2, e3);
+    //         if (maxDihedral < minMaxDihedral) {
+    //             minMaxDihedral = maxDihedral;
+    //             bestTriangle = (e1, e2, e3);
+    //         }
+    //     }
+
+    //     GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+    //     sphere.transform.position = bestTriangle.Item1.vertex.position;
+    //     sphere.transform.localScale = Vector3.one * 0.001f;
+    //     sphere.GetComponent<Renderer>().material.color = Color.red;
+    //     GameObject sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+    //     sphere2.transform.position = bestTriangle.Item1.vertex.position;
+    //     sphere2.transform.localScale = Vector3.one * 0.001f;
+    //     sphere2.GetComponent<Renderer>().material.color = Color.red;
+    //     GameObject sphere3 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+    //     sphere3.transform.position = bestTriangle.Item1.vertex.position;
+    //     sphere3.transform.localScale = Vector3.one * 0.001f;
+    //     sphere3.GetComponent<Renderer>().material.color = Color.red;
+
+    //     // Remove e2 from the boundary (ear tip)
+    //     List<Edge> newHole = new List<Edge>(holeEdges);
+    //     newHole.Remove(bestTriangle.Item2);
+
+    //     // Add triangle and update half-edge structure
+    //     // AddTriangleAndFace(new List<Edge> { bestTriangle.Item1, bestTriangle.Item2, bestTriangle.Item3 });
+    //     List<Edge> temp = new List<Edge>();
+    //     temp.Add(bestTriangle.Item1);
+    //     temp.Add(bestTriangle.Item2);
+    //     temp.Add(bestTriangle.Item3);
+
+    //     List<int> triangleIndices2 = new List<int>();
+
+    //     for (int i = 0; i < 3; i++) {
+    //         int vertexIndex = temp[i].vertex.index; // Retrieve the existing vertex index
+    //         triangleIndices2.Add(vertexIndex);
+
+    //         Edge currentEdge = temp[i];
+    //         var key = Tuple.Create(currentEdge.vertex.index, currentEdge.next.vertex.index);
+    //         if (newEdgeDict.ContainsKey(key)) {
+    //             new_edge_list.Add(newEdgeDict[key]);
+    //         }
+    //     }
+
+    //     // Ensure the correct winding order
+    //     if (!IsCorrectWindingOrder(vertices[triangleIndices2[0]], vertices[triangleIndices2[1]], vertices[triangleIndices2[2]])) {
+    //         (triangleIndices2[1], triangleIndices2[2]) = (triangleIndices2[2], triangleIndices2[1]);
+    //     }
+
+    //     // Add indices for the triangle
+    //     subMeshTriangles.AddRange(triangleIndices2);
+
+    //     // add triangle to half edge DS at this point
+    //     // halfedgeMesh.AddTriangle(holeEdges[0], holeEdges[1], holeEdges[2], newEdgeDict); //, new_edge_list[new_edge_list.Count - 1]);
+
+    //     // Recursively fill the remaining hole
+    //     // NewTriangulateHoleDihedral(newHole);
+    //     return;
+    // }
+
+    // float MaxDihedralAngle(Edge v_i, Edge v_m, Edge v_k) {
+    //     float maxAngle = 0;
+
+    //     Edge[] candidateEdges = new Edge[] {
+    //         GetEdgeBetween(v_i.vertex, v_m.vertex),
+    //         GetEdgeBetween(v_m.vertex, v_k.vertex),
+    //         GetEdgeBetween(v_k.vertex, v_i.vertex)
+    //     };
+
+    //     foreach (var edge in candidateEdges) {
+    //         if (edge == null || edge.opposite != null) continue; // only check boundary edges
+
+    //         // Find a triangle adjacent to this edge (the one sharing it from the surrounding mesh)
+    //         Edge[] surroundingTriangles = GetAdjacentTrianglesFromBoundaryEdge(edge).ToArray();
+    //         foreach (var adj in surroundingTriangles) {
+    //             float angle = DihedralAngle(edge, edge.next, edge.next.next, adj, adj.next, adj.next.next);
+    //             maxAngle = Mathf.Max(maxAngle, angle);
+    //         }
+    //     }
+
+    //     return maxAngle;
+    // }
+
+    // List<Edge> GetAdjacentTrianglesFromBoundaryEdge(Edge boundaryEdge) {
+    //     List<Edge> adjacentTriangles = new List<Edge>();
+
+    //     Vertex v1 = boundaryEdge.vertex;
+    //     Vertex v2 = boundaryEdge.next.vertex;
+
+    //     // Check if there is an edge going from v2 -> v1 with an opposite (i.e. triangle on other side)
+    //     if (newEdgeDict.TryGetValue(Tuple.Create(v2.index, v1.index), out Edge reverse)) {
+    //         if (reverse.opposite != null) {
+    //             adjacentTriangles.Add(reverse.opposite);
+    //         }
+    //     }
+
+    //     return adjacentTriangles;
+    // }
+
+
+
+    // public float DihedralAngle(Edge e1, Edge e2, Edge e3, Edge e4, Edge e5, Edge e6) {
+    //     Vector3 normal1 = ComputeNormal(e1.vertex, e2.vertex, e3.vertex);
+    //     Vector3 normal2 = ComputeNormal(e4.vertex, e5.vertex, e6.vertex);
+
+    //     // Flip the second normal if triangle orientation is inconsistent
+    //     if (!SharesEdge(e1, e2, e3, e4, e5, e6)) {
+    //         normal2 = -normal2;
+    //     }
+
+    //     float cosAngle = Mathf.Clamp(Vector3.Dot(normal1, normal2), -1f, 1f);
+    //     return Mathf.Acos(cosAngle);
+    // }
+
+
+    // Vector3 ComputeNormal(Vertex v0, Vertex v1, Vertex v2) {
+    //     Vector3 a = v1.position - v0.position;
+    //     Vector3 b = v2.position - v0.position;
+    //     Vector3 normal = Vector3.Cross(a, b).normalized;
+    //     return normal;
+    // }
+
+    // List<Edge> GetAdjacentTriangles(Edge e) {
+    //     List<Edge> adjacent = new List<Edge>();
+
+    //     for (int i = 0; i < 3; i++) {
+    //         if (e.opposite != null) {
+    //             adjacent.Add(e.opposite);
+    //         }
+    //         e = e.next;
+    //     }
+    //     return adjacent;
+    // }
+
+    // bool SharesEdge(Edge a1, Edge a2, Edge a3, Edge b1, Edge b2, Edge b3) {
+    //     var setA = new HashSet<(int, int)> {
+    //         (a1.vertex.index, a2.vertex.index),
+    //         (a2.vertex.index, a3.vertex.index),
+    //         (a3.vertex.index, a1.vertex.index)
+    //     };
+
+    //     var setB = new HashSet<(int, int)> {
+    //         (b1.vertex.index, b2.vertex.index),
+    //         (b2.vertex.index, b3.vertex.index),
+    //         (b3.vertex.index, b1.vertex.index)
+    //     };
+
+    //     foreach (var (i1, i2) in setA) {
+    //         if (setB.Contains((i2, i1))) return true; // opposite winding
+    //     }
+    //     return false;
+    // }
+
+
+    // Edge GetEdgeBetween(Vertex v1, Vertex v2) {
+    //     var key = Tuple.Create(v1.index, v2.index);
+    //     if (newEdgeDict.TryGetValue(key, out Edge e)) {
+    //         return e;
+    //     }
+    //     key = Tuple.Create(v2.index, v1.index); // try reverse
+    //     if (newEdgeDict.TryGetValue(key, out e)) {
+    //         return e.opposite; // we still want correct winding
+    //     }
+    //     return null;
+    // }
+
+
     int counter = 0;
     public void NewTriangulateHole(List<Edge> hole_vertices, Edge v11, Edge v22) {
         if (hole_vertices.Count <= 3)
@@ -212,19 +434,6 @@ public class LoopSplitting //: MonoBehaviour
             Edge he1 = hole_vertices[0];
             Edge he2 = he1.next;
             Edge he3 = he1.next.next;
-
-            // GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            // sphere.transform.position = he1.vertex.position;
-            // sphere.transform.localScale = Vector3.one * 0.001f;
-            // sphere.GetComponent<Renderer>().material.color = Color.red;
-            // GameObject sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            // sphere2.transform.position = he1.next.vertex.position;
-            // sphere2.transform.localScale = Vector3.one * 0.001f;
-            // sphere2.GetComponent<Renderer>().material.color = Color.red;
-            // GameObject sphere3 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            // sphere3.transform.position = he1.next.next.vertex.position;
-            // sphere3.transform.localScale = Vector3.one * 0.001f;
-            // sphere3.GetComponent<Renderer>().material.color = Color.red;
 
             // **Create a new face and assign an edge**
             Face newFace = new Face(he1); 
@@ -369,9 +578,7 @@ public class LoopSplitting //: MonoBehaviour
         // working code
         List<Edge> loop = new List<Edge>();
 
-
         Edge curr_edge = startEdge;
-
         do {
             if (curr_edge.opposite == null) {
                 loop.Add(curr_edge);
@@ -382,37 +589,6 @@ public class LoopSplitting //: MonoBehaviour
             
         } while (curr_edge != endEdge && curr_edge != null); 
         loop.Add(endEdge);
-
-        // Edge currEdge = startEdge;
-        // int iterations = 0;
-        // loop.Add(startEdge);
-
-        // do {
-        //     if (currEdge.opposite == null) {
-        //         loop.Add(currEdge); // Add to the loop only if it's a boundary edge
-        //     }
-        //     // Traverse using the pattern
-        //     if (currEdge != null && currEdge.next != null && currEdge.next.opposite != null) {
-        //         // loop.Add(currEdge);
-        //         currEdge = currEdge.next.opposite;
-        //     } else {
-        //         // Debug.LogError("Traversal broke due to a null pointer." + currEdge + " adf " + currEdge.next + " sdf " + currEdge.next.opposite);
-        //         // break;
-        //         currEdge = currEdge.next;
-        //     }
-
-        //     // Visualize or debug the current edge
-        //     Debug.Log($"Current Edge: {currEdge.vertex.index} -> {currEdge.next.vertex.index}");
-
-        //     iterations++;
-        //     if (iterations > 1000) {
-        //         Debug.LogError("Reached max iterations, possible infinite loop.");
-        //         break;
-        //     }
-        // } while (currEdge.vertex.index != endEdge.vertex.index && currEdge != null);
-        // loop.Add(endEdge);
-
-
         return loop;
     }
 
@@ -541,33 +717,7 @@ public class LoopSplitting //: MonoBehaviour
         List<Vector3> hole_vertices_positions = hole_edges.Select(edge => edge.vertex.position).ToList();
         List<Vertex> hole_vertex = hole_edges.Select(edge => edge.vertex).ToList();
         Plane avgPlane = CreateNewAvgPlane(hole_edges); //DefineAveragePlane(hole_edges);//hole_vertices_positions);
-        // Plane avgPlane = DefineAveragePlane(hole_vertices_positions);
-        // VisualizePlane(avgPlane, hole_vertices_positions);
 
-        // List<Tuple<Vertex, Vertex>> nonNeighbors = FindNonNeighboringVertices(hole_edges);
-        // List<Tuple<Edge, Edge>> nonNeighbors = FindNonNeighborsViaLoops(hole_edges[0], hole_edges);
-
-        // // foreach(var n in nonNeighbors) {
-        // //     Debug.Log("non neighbor pair: " + n.Item1.vertex.index + " " + n.Item2.vertex.index);
-        // // }
-        // // Debug.Log(nonNeighbors);
-
-        // foreach(var pair in nonNeighbors) {
-        //     Edge v1 = pair.Item1;
-        //     Edge v2 = pair.Item2;
-        //     Plane splitPlane = GetSplitPlane(v1.vertex.position, v2.vertex.position, avgPlane.normal);
-        //     float aspectRatio = CalculateAspectRatio(hole_vertices_positions, splitPlane, v1.vertex.position, v2.vertex.position);
-        //     // Debug.Log("aspect ratio: " + aspectRatio);
-
-        //     if (aspectRatio > bestAspectRatio)
-        //     {
-        //         bestV1 = v1;
-        //         bestV2 = v2;
-        //         bestAspectRatio = aspectRatio;
-        //     }
-        // }
-        // List<Edge> nonNeighbors = FindNonNeighborsViaLoops(hole_edges[0], hole_edges);
-        // Debug.Log("hole edge length: " + hole_edges.Count);
         foreach(var e in hole_edges) {
             List<Edge> nonNeighbors = FindNonNeighborsViaLoops(e, hole_edges);
             foreach(var n in nonNeighbors) {
@@ -632,7 +782,34 @@ public class LoopSplitting //: MonoBehaviour
 
         float splitLineLength = Vector3.Distance(v2, v1);
         if (splitLineLength == 0) return 0;
+        // return minDistance / splitLineLength;
+
+        // --- Angle factor computation ---
+        List<float> cornerAngles = new List<float>();
+        int n = hole_vertices.Count;
+
+        for (int i = 0; i < n; i++)
+        {
+            Vector3 prev = hole_vertices[(i - 1 + n) % n];
+            Vector3 curr = hole_vertices[i];
+            Vector3 next = hole_vertices[(i + 1) % n];
+
+            Vector3 dir1 = (prev - curr).normalized;
+            Vector3 dir2 = (next - curr).normalized;
+
+            float angle = Vector3.Angle(dir1, dir2);
+            cornerAngles.Add(angle);
+        }
+
+        float minAngle = cornerAngles.Min();
+        Debug.Log("checking angles...." + minAngle);
+        // float mean = cornerAngles.Average();
+        // float variance = cornerAngles.Sum(a => (a - mean) * (a - mean)) / cornerAngles.Count;
+        // float angleUniformity = 1f / (1f + variance);
+        // float angleFactor = Mathf.Clamp01(minAngle / 30f) * angleUniformity;
+
         return minDistance / splitLineLength;
+
     }
 
     // Function to compute the average plane based on the triangle normals, centers, and areas

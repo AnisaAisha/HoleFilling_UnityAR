@@ -381,4 +381,4 @@ MonoBehaviour:
   splitLengthFactor: 0.8
   holeFillingMethod: 1
   edgeFlipMethod: 0
-  threshold: 3.5
+  threshold: 4.5
