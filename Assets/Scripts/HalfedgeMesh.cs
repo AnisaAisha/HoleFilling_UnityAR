@@ -7,8 +7,7 @@ public class HalfedgeMesh //: MonoBehaviour
 {
     public List<Tuple<int, int>> edgesToRemove = new List<Tuple<int, int>>();    
     public List<Edge> halfEdges;
-    // public List<Vertex> vertices;
-    public Vertex[] vertices;
+    public List<Vertex> vertices;
     public List<Face> faces;
     public List<Face> patch_faces;
     public Dictionary<Tuple<int, int>, Edge> edgesDict = new Dictionary<Tuple<int, int>, Edge>();
@@ -21,9 +20,7 @@ public class HalfedgeMesh //: MonoBehaviour
 
    public void BuildHalfEdgeMesh(Vertex[] vertices_list, int[] meshTriangles)
     {
-        // vertices = new List<Vertex>();
-        // vertices = new Vertex[vertices_list.Length];
-        this.vertices = vertices_list;
+        vertices = new List<Vertex>(vertices_list);
         halfEdges = new List<Edge>();
         faces = new List<Face>();
         patch_faces = new List<Face>();
@@ -50,6 +47,10 @@ public class HalfedgeMesh //: MonoBehaviour
             // Create face
             Face f = new Face(he1); // new Face(he1, he2, he3, i)
             f.face_idx = i;
+            f.AddVertex(he1.vertex, he2.vertex, he3.vertex);
+            // f.AddEdge(he1);
+            // f.AddEdge(he2);
+            // f.AddEdge(he3);
             faces.Add(f);
 
             // Link half-edges to the face
@@ -59,8 +60,11 @@ public class HalfedgeMesh //: MonoBehaviour
 
             // Set vertices to reference an outgoing half-edge
             vertices[i0].edge = he1;
+            vertices[i0].AddVertexEdge(he1);
             vertices[i1].edge = he2;
+            vertices[i1].AddVertexEdge(he2);
             vertices[i2].edge = he3;
+            vertices[i2].AddVertexEdge(he3);
 
             // Add half-edges to the list
             halfEdges.Add(he1);
@@ -72,7 +76,7 @@ public class HalfedgeMesh //: MonoBehaviour
             AddEdgeAndCheckOpposite(i1, i2, he2);
             AddEdgeAndCheckOpposite(i2, i0, he3);
         }
-        Debug.Log("counts: " + vertices.Length + " " + halfEdges.Count + " " + edgesDict.Count + " " + faces.Count);
+        Debug.Log("counts: " + vertices.Count + " " + halfEdges.Count + " " + edgesDict.Count + " " + faces.Count);
 
         foreach (var edgekey in edgesDict.Keys) {
             var oppositeKey = Tuple.Create(edgekey.Item2, edgekey.Item1);
@@ -84,12 +88,98 @@ public class HalfedgeMesh //: MonoBehaviour
         }
     }
 
-    public float ComputeAverageEdgeLength() {
+    public void Reset()
+    {
+        vertices.Clear();
+        halfEdges.Clear();
+        edgesDict.Clear();
+        faces.Clear();
+    }
+
+    public void RemoveVertex(Vertex v)
+    {
+        foreach (var edge in edgesDict.Keys)
+        {
+            if (edgesDict[edge].vertex == v)
+            {
+                edgesDict.Remove(edge);
+                return;
+            }
+        }
+    }
+
+    public void RemoveFace(Vertex v)
+    {
+        foreach (var f in faces)
+        {
+            if (f.face_vertices.Contains(v))
+            {
+                faces.Remove(f);
+                return;
+            }
+        }
+    }
+
+    // create an updated triangles list after edges were deleted?
+    // basically need to create a triangles list from edges
+    public List<int> HalfedgeToMesh()
+    {
+        List<int> triangles = new List<int>();
+        HashSet<Face> visitedFaces = new HashSet<Face>(); // to avoid duplicates
+
+        foreach (var edge in halfEdges)
+        {
+            Face face = edge.face;
+            if (face == null || visitedFaces.Contains(face))
+                continue;
+
+            visitedFaces.Add(face);
+
+            // Traverse the triangle starting from this edge
+            Edge e0 = face.edge;
+            Edge e1 = e0.next;
+            Edge e2 = e1.next;
+
+            if (e0 == null || e1 == null || e2 == null)
+                continue;
+
+            int v0 = e0.vertex.index;
+            int v1 = e1.vertex.index;
+            int v2 = e2.vertex.index;
+
+            triangles.Add(v0);
+            triangles.Add(v1);
+            triangles.Add(v2);
+        }
+        return triangles;
+    }
+
+    public int[] FaceToTriangles()
+    {
+        List<int> triangles = new List<int>();
+        foreach (var face in faces)
+        {
+            Edge start = face.edge;
+
+            int v0 = start.vertex.index;
+            int v1 = start.next.vertex.index;
+            int v2 = start.next.next.vertex.index;
+
+            triangles.Add(v0);
+            triangles.Add(v1);
+            triangles.Add(v2);
+        }
+        return triangles.ToArray();
+    }
+
+    public float ComputeAverageEdgeLength()
+    {
         HashSet<(int, int)> seen = new HashSet<(int, int)>();
         float totalLength = 0f;
         int count = 0;
 
-        foreach (var edge in halfEdges) {
+        foreach (var edge in halfEdges)
+        {
             int i0 = edge.vertex.index;
             int i1 = edge.next.vertex.index;
 

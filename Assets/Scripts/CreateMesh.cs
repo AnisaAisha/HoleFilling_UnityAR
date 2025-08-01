@@ -1640,7 +1640,10 @@ public class CreateMesh : MonoBehaviour
 
 }
 
-public class Vertex {
+
+// TODO: Temporarily renamed because of conflicts with CustomMesh file
+public class Vertex2
+{
     public int index, valence;
     public Vector3 position;
     public Edge edge;
@@ -1648,14 +1651,16 @@ public class Vertex {
     // Face[] vertex_faces;
     List<Edge> vertex_edges;
 
-    public Vertex() {
+    public Vertex2()
+    {
         this.index = 0;
         this.position = Vector3.zero;
         this.valence = 0;
         vertex_edges = new List<Edge>();
     }
 
-    public Vertex(Vector3 position, int index) {
+    public Vertex2(Vector3 position, int index)
+    {
         this.index = index;
         this.position = position;
 
@@ -1665,26 +1670,27 @@ public class Vertex {
         // edge = new Edge();
     }
 
-    public void AddVertexEdge(Edge e) {
+    public void AddVertexEdge(Edge e)
+    {
         vertex_edges.Add(e);
         valence++;
     }
 }
 
-public class Face {
+public class Face2 {
     public Edge edge;
     // public List<int> face_vertices;
     public int[] face_vertices;
     public int face_idx;
 
-    public Face(Edge edge) {
+    public Face2(Edge edge) {
         this.edge = edge;
         // face_vertices = new List<int>();
         face_vertices = new int[3];
     }
 }
 
-public class Edge
+public class Edge2
 {
     public Edge next, opposite;
     public Face face;
@@ -1695,12 +1701,12 @@ public class Edge
     // public Edge prev;
     // public Face face;
     
-    public Edge() {
+    public Edge2() {
         this.vertex = null;
         this.next = this.opposite = null;
         this.isBoundary = false;
     }
-    public Edge(Vertex v) {
+    public Edge2(Vertex v) {
         this.vertex = v;
         this.next = this.opposite = null;
         this.isBoundary = false;
